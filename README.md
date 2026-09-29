@@ -35,8 +35,8 @@ make install PREFIX="$HOME/.local"
 ```
 
 `PREFIX` defaults to `/usr/local`. Packagers can stage an installation with
-`DESTDIR`. The project is tested on Linux with GCC and Clang, and on macOS with
-Apple Clang.
+`DESTDIR`. CI builds and tests Ubuntu 24.04 on x86-64 and ARM64 with GCC and
+Clang, and macOS 15 on Intel and Apple silicon with Apple Clang.
 
 ## Usage
 
