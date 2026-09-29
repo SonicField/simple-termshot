@@ -1,5 +1,5 @@
 /*
- * nbs_assert.h — Shared assertion macro for all NBS components.
+ * ts_assert.h — Always-on assertions for term-snapshot.
  *
  * Unlike standard assert(), this macro:
  *   - Always fires (not gated by NDEBUG) — asserts are executable specifications
@@ -10,8 +10,8 @@
  *        ASSERT_MSG(count >= 0, "message_count went negative: %d", count)
  */
 
-#ifndef NBS_ASSERT_H
-#define NBS_ASSERT_H
+#ifndef TERM_SNAPSHOT_ASSERT_H
+#define TERM_SNAPSHOT_ASSERT_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,4 +24,4 @@
     } \
 } while(0)
 
-#endif /* NBS_ASSERT_H */
+#endif /* TERM_SNAPSHOT_ASSERT_H */

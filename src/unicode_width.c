@@ -1,5 +1,5 @@
 /*
- * nbs_ts_wcwidth.c — Bundled Unicode character width table.
+ * unicode_width.c — Bundled Unicode character width table.
  *
  * Based on Unicode 15.1 East Asian Width and General Category data.
  * Uses binary search over sorted codepoint ranges.
@@ -7,7 +7,7 @@
  * No locale dependency. No external libraries.
  */
 
-#include "nbs_ts_wcwidth.h"
+#include "unicode_width.h"
 
 struct cp_range {
     uint32_t lo;
@@ -520,7 +520,7 @@ static const struct cp_range double_width[] = {
 
 #define ARRAY_LEN(a) ((int)(sizeof(a) / sizeof((a)[0])))
 
-int nbs_ts_wcwidth(uint32_t cp) {
+int unicode_width(uint32_t cp) {
     /* C0/C1 control characters */
     if (cp < 0x20) return -1;
     if (cp >= 0x7F && cp < 0xA0) return -1;

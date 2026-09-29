@@ -1,30 +1,30 @@
 /*
- * main.c — nbs-ts-render CLI entry point.
+ * main.c — term-snapshot CLI entry point.
  *
  * Reads raw PTY output from stdin, processes it through the terminal
  * emulator, and outputs the final screen state as plain text on stdout.
  *
- * Usage: nbs-ts-render [--width=N] [--height=N] [--help]
- *        cat output.log | nbs-ts-render
+ * Usage: term-snapshot [--width=N] [--height=N] [--help]
+ *        cat output.log | term-snapshot
  */
 
-#include "nbs_ts_render.h"
-#include "../nbs-common/nbs_assert.h"
+#include "term_snapshot.h"
+#include "ts_assert.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-/* Exit code for invalid arguments (matches NBS convention) */
-#define NBS_TS_EXIT_BAD_ARGS 4
+/* Exit code for invalid arguments. */
+#define TS_EXIT_BAD_ARGS 4
 
 /* Read buffer size: 64KB */
 #define READ_BUF_SIZE (64 * 1024)
 
 static void print_help(void) {
     printf(
-        "nbs-ts-render — Virtual terminal renderer\n"
+        "term-snapshot — Virtual terminal renderer\n"
         "\n"
         "Reads raw PTY output from stdin, processes it through a full\n"
         "terminal emulator (cursor movement, scrolling, erase), strips\n"
@@ -32,9 +32,9 @@ static void print_help(void) {
         "the final screen state as plain UTF-8 text.\n"
         "\n"
         "USAGE:\n"
-        "    nbs-ts-render [OPTIONS]\n"
-        "    cat output.log | nbs-ts-render\n"
-        "    nbs-ts-render < output.log\n"
+        "    term-snapshot [OPTIONS]\n"
+        "    cat output.log | term-snapshot\n"
+        "    term-snapshot < output.log\n"
         "\n"
         "OPTIONS:\n"
         "    --width=N, --width N\n"
@@ -45,14 +45,13 @@ static void print_help(void) {
         "    --help        Show this help message and exit\n"
         "\n"
         "DESCRIPTION:\n"
-        "    nbs-ts-render acts as a headless terminal emulator. It maintains\n"
+        "    term-snapshot acts as a headless terminal emulator. It maintains\n"
         "    an internal screen buffer and processes escape sequences exactly\n"
         "    as a real terminal would. The output is what a human would see\n"
         "    on screen after all input has been processed.\n"
         "\n"
-        "    The default dimensions (%dx%d) match the PTY size used by\n"
-        "    nbs-ts-helper. Use --width and --height to match a different\n"
-        "    terminal size.\n"
+        "    The default dimensions are %dx%d. Use --width and --height to\n"
+        "    match the terminal size that produced the captured output.\n"
         "\n"
         "SUPPORTED ESCAPE SEQUENCES:\n"
         "    Cursor movement:  CUP, CUU, CUD, CUF, CUB, CNL, CPL, CHA,\n"
@@ -72,18 +71,18 @@ static void print_help(void) {
         "    OSC and DCS sequences are silently consumed.\n"
         "\n"
         "EXAMPLES:\n"
-        "    # Render an nbs-ts session log:\n"
-        "    cat /tmp/nbs-ts-*/output.log | nbs-ts-render\n"
+        "    # Render a captured terminal session:\n"
+        "    cat output.log | term-snapshot\n"
         "\n"
         "    # Render with custom terminal size:\n"
-        "    cat output.log | nbs-ts-render --width=120 --height=40\n"
+        "    cat output.log | term-snapshot --width=120 --height=40\n"
         "\n"
         "EXIT CODES:\n"
         "    0    Success\n"
         "    1    Runtime error (allocation failure, I/O error)\n"
         "    4    Bad arguments (invalid or missing option values)\n",
-        NBS_TS_RENDER_DEFAULT_COLS, NBS_TS_RENDER_DEFAULT_ROWS,
-        NBS_TS_RENDER_DEFAULT_COLS, NBS_TS_RENDER_DEFAULT_ROWS
+        TS_RENDER_DEFAULT_COLS, TS_RENDER_DEFAULT_ROWS,
+        TS_RENDER_DEFAULT_COLS, TS_RENDER_DEFAULT_ROWS
     );
 }
 
@@ -92,14 +91,14 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
     if (strncmp(arg, prefix, plen) != 0) return 0;
     const char *val = arg + plen;
     if (*val == '\0') {
-        fprintf(stderr, "nbs-ts-render: missing value for %s\n", prefix);
+        fprintf(stderr, "term-snapshot: missing value for %s\n", prefix);
         return -1;
     }
     char *end;
     errno = 0;
     long v = strtol(val, &end, 10);
     if (*end != '\0' || errno != 0 || v <= 0 || v > 10000) {
-        fprintf(stderr, "nbs-ts-render: invalid value '%s' for %s (must be 1-10000)\n",
+        fprintf(stderr, "term-snapshot: invalid value '%s' for %s (must be 1-10000)\n",
                 val, prefix);
         return -1;
     }
@@ -108,8 +107,8 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
 }
 
 int main(int argc, char *argv[]) {
-    int width = NBS_TS_RENDER_DEFAULT_COLS;
-    int height = NBS_TS_RENDER_DEFAULT_ROWS;
+    int width = TS_RENDER_DEFAULT_COLS;
+    int height = TS_RENDER_DEFAULT_ROWS;
     int no_strip = 0;
 
     for (int i = 1; i < argc; i++) {
@@ -120,11 +119,11 @@ int main(int argc, char *argv[]) {
 
         int result;
         result = parse_int_arg(argv[i], "--width=", &width);
-        if (result == -1) return NBS_TS_EXIT_BAD_ARGS;
+        if (result == -1) return TS_EXIT_BAD_ARGS;
         if (result == 1) continue;
 
         result = parse_int_arg(argv[i], "--height=", &height);
-        if (result == -1) return NBS_TS_EXIT_BAD_ARGS;
+        if (result == -1) return TS_EXIT_BAD_ARGS;
         if (result == 1) continue;
 
         if (strcmp(argv[i], "--no-strip") == 0) {
@@ -135,36 +134,36 @@ int main(int argc, char *argv[]) {
         /* Support space-separated form: --width N / --height N */
         if (strcmp(argv[i], "--width") == 0) {
             if (i + 1 >= argc) {
-                fprintf(stderr, "nbs-ts-render: --width requires a value\n");
-                return NBS_TS_EXIT_BAD_ARGS;
+                fprintf(stderr, "term-snapshot: --width requires a value\n");
+                return TS_EXIT_BAD_ARGS;
             }
             char prefixed[64];
             snprintf(prefixed, sizeof(prefixed), "--width=%s", argv[++i]);
             result = parse_int_arg(prefixed, "--width=", &width);
-            if (result == -1) return NBS_TS_EXIT_BAD_ARGS;
+            if (result == -1) return TS_EXIT_BAD_ARGS;
             continue;
         }
 
         if (strcmp(argv[i], "--height") == 0) {
             if (i + 1 >= argc) {
-                fprintf(stderr, "nbs-ts-render: --height requires a value\n");
-                return NBS_TS_EXIT_BAD_ARGS;
+                fprintf(stderr, "term-snapshot: --height requires a value\n");
+                return TS_EXIT_BAD_ARGS;
             }
             char prefixed[64];
             snprintf(prefixed, sizeof(prefixed), "--height=%s", argv[++i]);
             result = parse_int_arg(prefixed, "--height=", &height);
-            if (result == -1) return NBS_TS_EXIT_BAD_ARGS;
+            if (result == -1) return TS_EXIT_BAD_ARGS;
             continue;
         }
 
-        fprintf(stderr, "nbs-ts-render: unknown option '%s'\n"
-                        "Try 'nbs-ts-render --help' for usage.\n", argv[i]);
-        return NBS_TS_EXIT_BAD_ARGS;
+        fprintf(stderr, "term-snapshot: unknown option '%s'\n"
+                        "Try 'term-snapshot --help' for usage.\n", argv[i]);
+        return TS_EXIT_BAD_ARGS;
     }
 
     ts_render_t *t = ts_render_create(height, width);
     if (!t) {
-        fprintf(stderr, "nbs-ts-render: failed to allocate terminal buffer (%dx%d)\n",
+        fprintf(stderr, "term-snapshot: failed to allocate terminal buffer (%dx%d)\n",
                 width, height);
         return 1;
     }
@@ -176,7 +175,7 @@ int main(int argc, char *argv[]) {
     /* Read stdin in 64KB chunks and feed to emulator */
     char *buf = malloc(READ_BUF_SIZE);
     if (!buf) {
-        fprintf(stderr, "nbs-ts-render: failed to allocate read buffer\n");
+        fprintf(stderr, "term-snapshot: failed to allocate read buffer\n");
         ts_render_destroy(t);
         return 1;
     }
@@ -189,7 +188,7 @@ int main(int argc, char *argv[]) {
     free(buf);
 
     if (ferror(stdin)) {
-        fprintf(stderr, "nbs-ts-render: read error on stdin: %s\n", strerror(errno));
+        fprintf(stderr, "term-snapshot: read error on stdin: %s\n", strerror(errno));
         ts_render_destroy(t);
         return 1;
     }
@@ -197,7 +196,7 @@ int main(int argc, char *argv[]) {
     /* Output final screen state */
     char *output = ts_render_snapshot(t);
     if (!output) {
-        fprintf(stderr, "nbs-ts-render: failed to allocate snapshot buffer\n");
+        fprintf(stderr, "term-snapshot: failed to allocate snapshot buffer\n");
         ts_render_destroy(t);
         return 1;
     }

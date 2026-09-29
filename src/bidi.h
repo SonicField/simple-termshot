@@ -1,5 +1,5 @@
 /*
- * nbs_ts_bidi.h — Unicode Bidirectional Algorithm (UAX #9).
+ * bidi.h — Unicode Bidirectional Algorithm (UAX #9).
  *
  * Reorders a line of Unicode codepoints from logical to visual order.
  * Full UAX #9 implementation: character type resolution, embedding levels,
@@ -8,8 +8,8 @@
  * No external dependencies. Bundled character type table.
  */
 
-#ifndef NBS_TS_BIDI_H
-#define NBS_TS_BIDI_H
+#ifndef TERM_SNAPSHOT_BIDI_H
+#define TERM_SNAPSHOT_BIDI_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -51,7 +51,7 @@ typedef enum {
 /*
  * Look up the bidi character type for a Unicode codepoint.
  */
-bidi_type_t nbs_ts_bidi_type(uint32_t cp);
+bidi_type_t bidi_type(uint32_t cp);
 
 /*
  * Reorder a line of codepoints from logical to visual order.
@@ -64,21 +64,21 @@ bidi_type_t nbs_ts_bidi_type(uint32_t cp);
  *
  * Returns the resolved paragraph direction (0=LTR, 1=RTL).
  */
-int nbs_ts_bidi_reorder(const uint32_t *codepoints, int count,
-                        int *visual_map, int base_dir);
+int bidi_reorder(const uint32_t *codepoints, int count,
+                 int *visual_map, int base_dir);
 
 /*
  * Return the bidi mirrored glyph for a codepoint, or the codepoint
  * itself if no mirror exists. Used for brackets in RTL context (UAX #9 L4).
  */
-uint32_t nbs_ts_bidi_mirror(uint32_t cp);
+uint32_t bidi_mirror(uint32_t cp);
 
 /*
  * Get the resolved embedding level for a position after reorder.
- * Must be called after nbs_ts_bidi_reorder. Returns levels via output array.
+ * Must be called after bidi_reorder. Returns levels via output array.
  */
-int nbs_ts_bidi_reorder_with_levels(const uint32_t *codepoints, int count,
-                                     int *visual_map, int *out_levels,
-                                     int base_dir);
+int bidi_reorder_with_levels(const uint32_t *codepoints, int count,
+                             int *visual_map, int *out_levels,
+                             int base_dir);
 
-#endif /* NBS_TS_BIDI_H */
+#endif /* TERM_SNAPSHOT_BIDI_H */

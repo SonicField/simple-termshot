@@ -1,5 +1,5 @@
 /*
- * nbs_ts_render.h — Virtual terminal emulator: public API.
+ * term_snapshot.h — Virtual terminal emulator: public API.
  *
  * Maintains an internal screen buffer (fixed cell grid) and processes
  * raw PTY output byte-by-byte through a VT100/xterm state machine.
@@ -9,21 +9,21 @@
  * Output: the final screen state as plain UTF-8 text.
  */
 
-#ifndef NBS_TS_RENDER_H
-#define NBS_TS_RENDER_H
+#ifndef TERM_SNAPSHOT_H
+#define TERM_SNAPSHOT_H
 
 #include <stddef.h>
-#include "../nbs-common/nbs_term_attr.h"
+#include "term_style.h"
 
-/* Default PTY size matching nbs-ts-helper (helper.c:162) */
-#define NBS_TS_RENDER_DEFAULT_COLS 80
-#define NBS_TS_RENDER_DEFAULT_ROWS 24
+/* Default size used when the capture's terminal dimensions are unknown. */
+#define TS_RENDER_DEFAULT_COLS 80
+#define TS_RENDER_DEFAULT_ROWS 24
 
 /* Maximum UTF-8 bytes per cell (8 to fit base char + combining marks) */
-#define NBS_TS_RENDER_CELL_BYTES 8
+#define TS_RENDER_CELL_BYTES 8
 
 /* Maximum CSI parameters */
-#define NBS_TS_RENDER_MAX_PARAMS 16
+#define TS_RENDER_MAX_PARAMS 16
 
 /* State machine states (VT100/xterm parser) */
 typedef enum {
@@ -40,9 +40,9 @@ typedef enum {
 
 /* A single screen cell */
 typedef struct {
-    char ch[NBS_TS_RENDER_CELL_BYTES]; /* UTF-8 codepoint (NUL-padded) */
+    char ch[TS_RENDER_CELL_BYTES]; /* UTF-8 codepoint (NUL-padded) */
     int  len;                          /* byte length of ch (0 = empty) */
-    nbs_style_t style;                 /* SGR state when cell was written */
+    term_style_t style;                /* SGR state when cell was written */
 } ts_render_cell_t;
 
 /* The terminal emulator context */
@@ -61,7 +61,7 @@ typedef struct {
     ts_render_state_t state;
 
     /* CSI parameter accumulation */
-    int  params[NBS_TS_RENDER_MAX_PARAMS];
+    int  params[TS_RENDER_MAX_PARAMS];
     int  param_count;
     int  param_val;       /* current parameter being parsed */
     int  param_has_val;   /* whether current param has digits */
@@ -79,7 +79,7 @@ typedef struct {
     int saved_cursor_col;
 
     /* UTF-8 multi-byte accumulation */
-    char   utf8_buf[NBS_TS_RENDER_CELL_BYTES];
+    char   utf8_buf[TS_RENDER_CELL_BYTES];
     int    utf8_len;      /* bytes accumulated so far */
     int    utf8_expect;   /* total bytes expected */
 
@@ -88,7 +88,7 @@ typedef struct {
 
     /* SGR preservation mode (--no-strip) */
     int preserve_sgr;                  /* 0 = strip (default), 1 = preserve */
-    nbs_style_t active_style;          /* current SGR state from input stream */
+    term_style_t active_style;         /* current SGR state from input stream */
 } ts_render_t;
 
 /*
@@ -128,4 +128,4 @@ void ts_render_reset(ts_render_t *t);
  */
 void ts_render_set_preserve_sgr(ts_render_t *t, int enable);
 
-#endif /* NBS_TS_RENDER_H */
+#endif /* TERM_SNAPSHOT_H */

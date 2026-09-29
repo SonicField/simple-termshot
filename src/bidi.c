@@ -1,5 +1,5 @@
 /*
- * nbs_ts_bidi.c — Unicode Bidirectional Algorithm (UAX #9).
+ * bidi.c — Unicode Bidirectional Algorithm (UAX #9).
  *
  * Full implementation covering:
  *   - Character type lookup (bundled table)
@@ -13,7 +13,7 @@
  * Reference: Unicode Standard Annex #9, Revision 46
  */
 
-#include "nbs_ts_bidi.h"
+#include "bidi.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -253,7 +253,7 @@ static const struct bidi_range bidi_ranges[] = {
 
 #define BIDI_RANGES_COUNT ((int)(sizeof(bidi_ranges) / sizeof(bidi_ranges[0])))
 
-bidi_type_t nbs_ts_bidi_type(uint32_t cp) {
+bidi_type_t bidi_type(uint32_t cp) {
     int lo = 0, hi = BIDI_RANGES_COUNT - 1;
     while (lo <= hi) {
         int mid = (lo + hi) / 2;
@@ -304,8 +304,8 @@ static int determine_paragraph_level(const bidi_type_t *types, int count) {
 static int next_odd(int level)  { return (level & 1) ? level + 2 : level + 1; }
 static int next_even(int level) { return (level & 1) ? level + 1 : level + 2; }
 
-int nbs_ts_bidi_reorder(const uint32_t *codepoints, int count,
-                        int *visual_map, int base_dir) {
+int bidi_reorder(const uint32_t *codepoints, int count,
+                 int *visual_map, int base_dir) {
     if (count <= 0) return 0;
 
     /* Allocate working arrays */
@@ -321,7 +321,7 @@ int nbs_ts_bidi_reorder(const uint32_t *codepoints, int count,
 
     /* Get bidi types */
     for (int i = 0; i < count; i++) {
-        types[i] = nbs_ts_bidi_type(codepoints[i]);
+        types[i] = bidi_type(codepoints[i]);
         resolved[i] = types[i];
     }
 
@@ -777,7 +777,7 @@ static const struct mirror_pair mirror_table[] = {
 
 #define MIRROR_TABLE_COUNT ((int)(sizeof(mirror_table) / sizeof(mirror_table[0])))
 
-uint32_t nbs_ts_bidi_mirror(uint32_t cp) {
+uint32_t bidi_mirror(uint32_t cp) {
     /* Binary search — table is sorted by 'from' */
     int lo = 0, hi = MIRROR_TABLE_COUNT - 1;
     while (lo <= hi) {
@@ -789,11 +789,11 @@ uint32_t nbs_ts_bidi_mirror(uint32_t cp) {
     return cp; /* no mirror */
 }
 
-int nbs_ts_bidi_reorder_with_levels(const uint32_t *codepoints, int count,
-                                     int *visual_map, int *out_levels,
-                                     int base_dir) {
+int bidi_reorder_with_levels(const uint32_t *codepoints, int count,
+                             int *visual_map, int *out_levels,
+                             int base_dir) {
     /* Run the standard reorder */
-    int para_level = nbs_ts_bidi_reorder(codepoints, count, visual_map, base_dir);
+    int para_level = bidi_reorder(codepoints, count, visual_map, base_dir);
 
     /* Recompute levels for the caller (needed for mirroring decisions) */
     /* We need to know which positions are at odd levels */
@@ -801,7 +801,7 @@ int nbs_ts_bidi_reorder_with_levels(const uint32_t *codepoints, int count,
         bidi_type_t *types = malloc((size_t)count * sizeof(bidi_type_t));
         if (types) {
             for (int i = 0; i < count; i++)
-                types[i] = nbs_ts_bidi_type(codepoints[i]);
+                types[i] = bidi_type(codepoints[i]);
 
             /* Simplified level computation — just check if char is R/AL type */
             for (int i = 0; i < count; i++) {

@@ -1,16 +1,16 @@
 /*
- * nbs_ts_render.c — Virtual terminal emulator core.
+ * term_snapshot.c — Virtual terminal emulator core.
  *
  * State machine processes raw PTY output byte-by-byte.
  * Strips decoration (SGR, color, bold, italic, underline).
  * Maintains cursor position, scrolling, erase, and screen buffer.
  */
 
-#include "nbs_ts_render.h"
-#include "nbs_ts_wcwidth.h"
-#include "nbs_ts_bidi.h"
-#include "../nbs-common/nbs_assert.h"
-#include "../nbs-common/nbs_term_attr.h"
+#include "term_snapshot.h"
+#include "unicode_width.h"
+#include "bidi.h"
+#include "ts_assert.h"
+#include "term_style.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -35,9 +35,9 @@ static const ts_render_cell_t *cell_at_const(const ts_render_t *t, int row, int 
 }
 
 static void clear_cell(ts_render_cell_t *c) {
-    memset(c->ch, 0, NBS_TS_RENDER_CELL_BYTES);
+    memset(c->ch, 0, TS_RENDER_CELL_BYTES);
     c->len = 0;
-    c->style = (nbs_style_t){ NBS_COLOUR_NONE, NBS_COLOUR_NONE, 0 };
+    c->style = (term_style_t){ TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
 }
 
 static void clear_row(ts_render_t *t, int row) {
@@ -133,7 +133,7 @@ static void do_reverse_linefeed(ts_render_t *t) {
 #define CELL_IS_CONTINUATION(c) ((c)->len == -1)
 
 static void set_continuation(ts_render_cell_t *c) {
-    memset(c->ch, 0, NBS_TS_RENDER_CELL_BYTES);
+    memset(c->ch, 0, TS_RENDER_CELL_BYTES);
     c->len = -1;
 }
 
@@ -167,11 +167,11 @@ static uint32_t utf8_to_codepoint(const char *ch, int len) {
 /* ── Put a printable character at cursor ──────────────────────────── */
 
 static void put_char(ts_render_t *t, const char *ch, int len) {
-    ASSERT_MSG(len > 0 && len <= NBS_TS_RENDER_CELL_BYTES,
+    ASSERT_MSG(len > 0 && len <= TS_RENDER_CELL_BYTES,
                "put_char: invalid char length %d", len);
 
     uint32_t cp = utf8_to_codepoint(ch, len);
-    int width = nbs_ts_wcwidth(cp);
+    int width = unicode_width(cp);
 
     /* Width 0: combining mark — append to previous cell */
     if (width == 0) {
@@ -188,7 +188,7 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
         }
 
         /* Append if there's room in the cell */
-        if (prev->len > 0 && prev->len + len <= NBS_TS_RENDER_CELL_BYTES) {
+        if (prev->len > 0 && prev->len + len <= TS_RENDER_CELL_BYTES) {
             memcpy(prev->ch + prev->len, ch, (size_t)len);
             prev->len += len;
         }
@@ -220,8 +220,8 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
         /* Place the character in primary cell */
         ts_render_cell_t *c = cell_at(t, t->cursor_row, t->cursor_col);
         memcpy(c->ch, ch, (size_t)len);
-        if (len < NBS_TS_RENDER_CELL_BYTES) {
-            memset(c->ch + len, 0, (size_t)(NBS_TS_RENDER_CELL_BYTES - len));
+        if (len < TS_RENDER_CELL_BYTES) {
+            memset(c->ch + len, 0, (size_t)(TS_RENDER_CELL_BYTES - len));
         }
         c->len = len;
         if (t->preserve_sgr) c->style = t->active_style;
@@ -245,8 +245,8 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
 
     ts_render_cell_t *c = cell_at(t, t->cursor_row, t->cursor_col);
     memcpy(c->ch, ch, (size_t)len);
-    if (len < NBS_TS_RENDER_CELL_BYTES) {
-        memset(c->ch + len, 0, (size_t)(NBS_TS_RENDER_CELL_BYTES - len));
+    if (len < TS_RENDER_CELL_BYTES) {
+        memset(c->ch + len, 0, (size_t)(TS_RENDER_CELL_BYTES - len));
     }
     c->len = len;
     if (t->preserve_sgr) c->style = t->active_style;
@@ -263,7 +263,7 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
 
 static void csi_finalize(ts_render_t *t) {
     /* Push final accumulated parameter */
-    if (t->param_has_val && t->param_count < NBS_TS_RENDER_MAX_PARAMS) {
+    if (t->param_has_val && t->param_count < TS_RENDER_MAX_PARAMS) {
         t->params[t->param_count++] = t->param_val;
     }
 }
@@ -479,25 +479,25 @@ static void dispatch_csi(ts_render_t *t, char final_byte) {
     case 'm': /* SGR — Select Graphic Rendition */
         if (t->preserve_sgr) {
             if (t->param_count == 0) {
-                t->active_style = (nbs_style_t){ NBS_COLOUR_NONE, NBS_COLOUR_NONE, 0 };
+                t->active_style = (term_style_t){ TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
             }
             for (int pi = 0; pi < t->param_count; pi++) {
                 int p = t->params[pi];
                 if (p == 0) {
-                    t->active_style = (nbs_style_t){ NBS_COLOUR_NONE, NBS_COLOUR_NONE, 0 };
-                } else if (p == 1) { t->active_style.attrs |= NBS_ATTR_BOLD;
-                } else if (p == 2) { t->active_style.attrs |= NBS_ATTR_DIM;
-                } else if (p == 3) { t->active_style.attrs |= NBS_ATTR_ITALIC;
-                } else if (p == 4) { t->active_style.attrs |= NBS_ATTR_UNDERLINE;
-                } else if (p == 5) { t->active_style.attrs |= NBS_ATTR_BLINK;
-                } else if (p == 7) { t->active_style.attrs |= NBS_ATTR_INVERSE;
-                } else if (p == 9) { t->active_style.attrs |= NBS_ATTR_STRIKE;
-                } else if (p == 22) { t->active_style.attrs &= ~(NBS_ATTR_BOLD | NBS_ATTR_DIM);
-                } else if (p == 23) { t->active_style.attrs &= ~NBS_ATTR_ITALIC;
-                } else if (p == 24) { t->active_style.attrs &= ~NBS_ATTR_UNDERLINE;
-                } else if (p == 25) { t->active_style.attrs &= ~NBS_ATTR_BLINK;
-                } else if (p == 27) { t->active_style.attrs &= ~NBS_ATTR_INVERSE;
-                } else if (p == 29) { t->active_style.attrs &= ~NBS_ATTR_STRIKE;
+                    t->active_style = (term_style_t){ TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
+                } else if (p == 1) { t->active_style.attrs |= TERM_ATTR_BOLD;
+                } else if (p == 2) { t->active_style.attrs |= TERM_ATTR_DIM;
+                } else if (p == 3) { t->active_style.attrs |= TERM_ATTR_ITALIC;
+                } else if (p == 4) { t->active_style.attrs |= TERM_ATTR_UNDERLINE;
+                } else if (p == 5) { t->active_style.attrs |= TERM_ATTR_BLINK;
+                } else if (p == 7) { t->active_style.attrs |= TERM_ATTR_INVERSE;
+                } else if (p == 9) { t->active_style.attrs |= TERM_ATTR_STRIKE;
+                } else if (p == 22) { t->active_style.attrs &= ~(TERM_ATTR_BOLD | TERM_ATTR_DIM);
+                } else if (p == 23) { t->active_style.attrs &= ~TERM_ATTR_ITALIC;
+                } else if (p == 24) { t->active_style.attrs &= ~TERM_ATTR_UNDERLINE;
+                } else if (p == 25) { t->active_style.attrs &= ~TERM_ATTR_BLINK;
+                } else if (p == 27) { t->active_style.attrs &= ~TERM_ATTR_INVERSE;
+                } else if (p == 29) { t->active_style.attrs &= ~TERM_ATTR_STRIKE;
                 } else if (p == 38 && pi + 2 < t->param_count && t->params[pi + 1] == 5) {
                     t->active_style.fg = t->params[pi + 2]; pi += 2;
                 } else if (p == 48 && pi + 2 < t->param_count && t->params[pi + 1] == 5) {
@@ -518,8 +518,8 @@ static void dispatch_csi(ts_render_t *t, char final_byte) {
                 } else if (p >= 40 && p <= 47) { t->active_style.bg = p - 40;
                 } else if (p >= 90 && p <= 97) { t->active_style.fg = p - 90 + 8;
                 } else if (p >= 100 && p <= 107) { t->active_style.bg = p - 100 + 8;
-                } else if (p == 39) { t->active_style.fg = NBS_COLOUR_NONE;
-                } else if (p == 49) { t->active_style.bg = NBS_COLOUR_NONE;
+                } else if (p == 39) { t->active_style.fg = TERM_COLOR_NONE;
+                } else if (p == 49) { t->active_style.bg = TERM_COLOR_NONE;
                 }
             }
         }
@@ -606,9 +606,9 @@ static void process_ground(ts_render_t *t, unsigned char ch) {
         switch (ch) {
         case '\n': /* LF — also do CR (newline mode).
                     * Real terminals have a "newline mode" (LNM) where LF
-                    * implies CR. PTY output from nbs-chat export and most
-                    * Unix tools sends bare \n without \r. Without this,
-                    * the cursor staircase-steps across the screen. */
+                    * implies CR. Captured PTY output and most Unix tools send
+                    * bare \n without \r. Without this, the cursor
+                    * staircase-steps across the screen. */
             t->cursor_col = 0;
             t->pending_wrap = 0;
             do_linefeed(t);
@@ -763,7 +763,7 @@ static void process_byte(ts_render_t *t, unsigned char ch) {
             t->param_has_val = 1;
         } else if (ch == ';') {
             /* Parameter separator */
-            if (t->param_count < NBS_TS_RENDER_MAX_PARAMS) {
+            if (t->param_count < TS_RENDER_MAX_PARAMS) {
                 t->params[t->param_count++] = t->param_has_val ? t->param_val : 0;
             }
             t->param_val = 0;
@@ -882,20 +882,20 @@ void ts_render_feed(ts_render_t *t, const char *data, size_t len) {
     }
 }
 
-static int style_eq(const nbs_style_t *a, const nbs_style_t *b) {
+static int style_eq(const term_style_t *a, const term_style_t *b) {
     return a->fg == b->fg && a->bg == b->bg && a->attrs == b->attrs;
 }
 
-static int style_is_default(const nbs_style_t *s) {
-    return s->fg == NBS_COLOUR_NONE && s->bg == NBS_COLOUR_NONE && s->attrs == 0;
+static int style_is_default(const term_style_t *s) {
+    return s->fg == TERM_COLOR_NONE && s->bg == TERM_COLOR_NONE && s->attrs == 0;
 }
 
 char *ts_render_snapshot(const ts_render_t *t) {
     ASSERT_MSG(t != NULL, "ts_render_snapshot: t must be non-NULL");
 
     /* Worst case: each cell is cell_bytes + SGR overhead (~64 bytes) + newline + NUL */
-    size_t sgr_overhead = t->preserve_sgr ? NBS_STYLE_BUFSIZE : 0;
-    size_t buf_size = (size_t)(t->rows * (t->cols * (NBS_TS_RENDER_CELL_BYTES + sgr_overhead) + 1)) + 64;
+    size_t sgr_overhead = t->preserve_sgr ? TERM_STYLE_BUFSIZE : 0;
+    size_t buf_size = (size_t)(t->rows * (t->cols * (TS_RENDER_CELL_BYTES + sgr_overhead) + 1)) + 64;
     char *buf = malloc(buf_size);
     if (!buf) return NULL;
 
@@ -935,12 +935,12 @@ char *ts_render_snapshot(const ts_render_t *t) {
         int visual_map[t->cols];
         int bidi_levels[t->cols];
         if (char_count > 0) {
-            nbs_ts_bidi_reorder_with_levels(codepoints, char_count,
-                                            visual_map, bidi_levels, 0);
+            bidi_reorder_with_levels(codepoints, char_count,
+                                     visual_map, bidi_levels, 0);
         }
 
         /* Write cells in visual order, with bracket mirroring */
-        nbs_style_t cur_style = { NBS_COLOUR_NONE, NBS_COLOUR_NONE, 0 };
+        term_style_t cur_style = { TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
         for (int vi = 0; vi < char_count; vi++) {
             int li = visual_map[vi]; /* logical index */
             int col = col_map[li];
@@ -948,15 +948,15 @@ char *ts_render_snapshot(const ts_render_t *t) {
 
             /* Emit SGR transition if style changed */
             if (t->preserve_sgr) {
-                const nbs_style_t *cell_style = &c->style;
+                const term_style_t *cell_style = &c->style;
                 if (!style_eq(&cur_style, cell_style)) {
-                    char sgr_buf[NBS_STYLE_BUFSIZE];
+                    char sgr_buf[TERM_STYLE_BUFSIZE];
                     if (!style_is_default(&cur_style)) {
-                        int rn = nbs_style_reset(sgr_buf, sizeof(sgr_buf));
+                        int rn = term_style_reset(sgr_buf, sizeof(sgr_buf));
                         if (rn > 0) { memcpy(buf + pos, sgr_buf, (size_t)rn); pos += (size_t)rn; }
                     }
                     if (!style_is_default(cell_style)) {
-                        int sn = nbs_style_start(cell_style, sgr_buf, sizeof(sgr_buf));
+                        int sn = term_style_start(cell_style, sgr_buf, sizeof(sgr_buf));
                         if (sn > 0) { memcpy(buf + pos, sgr_buf, (size_t)sn); pos += (size_t)sn; }
                     }
                     cur_style = *cell_style;
@@ -967,7 +967,7 @@ char *ts_render_snapshot(const ts_render_t *t) {
                 /* Check if this char needs mirroring (odd bidi level) */
                 if (bidi_levels[li] & 1) {
                     uint32_t cp = codepoints[li];
-                    uint32_t mirrored = nbs_ts_bidi_mirror(cp);
+                    uint32_t mirrored = bidi_mirror(cp);
                     if (mirrored != cp && cp < 0x80) {
                         /* ASCII mirror — single byte replacement */
                         ASSERT_MSG(pos + 1 < buf_size,
@@ -1008,8 +1008,8 @@ char *ts_render_snapshot(const ts_render_t *t) {
 
         /* Reset style at end of row if active */
         if (t->preserve_sgr && !style_is_default(&cur_style)) {
-            char sgr_buf[NBS_STYLE_BUFSIZE];
-            int rn = nbs_style_reset(sgr_buf, sizeof(sgr_buf));
+            char sgr_buf[TERM_STYLE_BUFSIZE];
+            int rn = term_style_reset(sgr_buf, sizeof(sgr_buf));
             if (rn > 0) { memcpy(buf + pos, sgr_buf, (size_t)rn); pos += (size_t)rn; }
         }
 
@@ -1056,7 +1056,7 @@ void ts_render_reset(ts_render_t *t) {
     t->saved_cursor_col = 0;
     t->utf8_len = 0;
     t->utf8_expect = 0;
-    t->active_style = (nbs_style_t){ NBS_COLOUR_NONE, NBS_COLOUR_NONE, 0 };
+    t->active_style = (term_style_t){ TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
 
     init_tab_stops(t);
 }

@@ -1,13 +1,13 @@
 /*
- * test_nbs_ts_render.c — Comprehensive test suite for nbs-ts-render.
+ * test_term_snapshot.c — Comprehensive term-snapshot test suite.
  *
  * Tests the terminal emulator against known input/output pairs.
  * Each test creates a fresh terminal, feeds input, takes a snapshot,
  * and compares against expected output.
  */
 
-#include "nbs_ts_render.h"
-#include "../nbs-common/nbs_assert.h"
+#include "term_snapshot.h"
+#include "ts_assert.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1071,7 +1071,7 @@ TEST(test_preserve_sgr_reset_at_eol) {
 /* ══════════════════════════════════════════════════════════════════ */
 
 int main(void) {
-    printf("nbs-ts-render test suite\n");
+    printf("term-snapshot test suite\n");
     printf("========================\n\n");
 
     printf("Basic text rendering:\n");

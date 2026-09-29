@@ -1,5 +1,5 @@
 /*
- * nbs_ts_wcwidth.h — Unicode character width lookup.
+ * unicode_width.h — Unicode character width lookup.
  *
  * Returns display width of a Unicode codepoint:
  *   0  combining mark, zero-width character
@@ -8,11 +8,11 @@
  *  -1  non-printable control character
  */
 
-#ifndef NBS_TS_WCWIDTH_H
-#define NBS_TS_WCWIDTH_H
+#ifndef TERM_SNAPSHOT_UNICODE_WIDTH_H
+#define TERM_SNAPSHOT_UNICODE_WIDTH_H
 
 #include <stdint.h>
 
-int nbs_ts_wcwidth(uint32_t cp);
+int unicode_width(uint32_t cp);
 
-#endif /* NBS_TS_WCWIDTH_H */
+#endif /* TERM_SNAPSHOT_UNICODE_WIDTH_H */
