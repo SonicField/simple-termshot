@@ -1,11 +1,11 @@
 /*
- * main.c — term-snapshot CLI entry point.
+ * main.c — simple-termshot CLI entry point.
  *
  * Reads raw PTY output from a file or stdin, processes it through the terminal
  * emulator, and outputs the final screen state as plain text on stdout.
  *
- * Usage: term-snapshot [--width=N] [--height=N] [FILE]
- *        cat output.log | term-snapshot
+ * Usage: simple-termshot [--width=N] [--height=N] [FILE]
+ *        cat output.log | simple-termshot
  */
 
 #include "term_snapshot.h"
@@ -16,7 +16,7 @@
 #include <string.h>
 #include <errno.h>
 
-#define TERM_SNAPSHOT_VERSION "0.1.0"
+#define SIMPLE_TERMSHOT_VERSION "0.1.0"
 
 /* Exit code for invalid arguments. */
 #define TS_EXIT_BAD_ARGS 4
@@ -26,7 +26,7 @@
 
 static void print_help(void) {
     printf(
-        "term-snapshot — Virtual terminal renderer\n"
+        "simple-termshot — Virtual terminal renderer\n"
         "\n"
         "Reads raw PTY output from a file or stdin, processes it through a\n"
         "terminal emulator (cursor movement, scrolling, erase), strips\n"
@@ -34,9 +34,9 @@ static void print_help(void) {
         "the final screen state as plain UTF-8 text.\n"
         "\n"
         "USAGE:\n"
-        "    term-snapshot [OPTIONS] [FILE]\n"
-        "    cat output.log | term-snapshot\n"
-        "    term-snapshot < output.log\n"
+        "    simple-termshot [OPTIONS] [FILE]\n"
+        "    cat output.log | simple-termshot\n"
+        "    simple-termshot < output.log\n"
         "\n"
         "OPTIONS:\n"
         "    --width=N, --width N\n"
@@ -50,7 +50,7 @@ static void print_help(void) {
         "    -V, --version Show the program version and exit\n"
         "\n"
         "DESCRIPTION:\n"
-        "    term-snapshot acts as a headless terminal emulator. It maintains\n"
+        "    simple-termshot acts as a headless terminal emulator. It maintains\n"
         "    an internal screen buffer and processes escape sequences exactly\n"
         "    as a real terminal would. The output is what a human would see\n"
         "    on screen after all input has been processed.\n"
@@ -77,10 +77,10 @@ static void print_help(void) {
         "\n"
         "EXAMPLES:\n"
         "    # Render a captured terminal session:\n"
-        "    term-snapshot output.log\n"
+        "    simple-termshot output.log\n"
         "\n"
         "    # Render with custom terminal size:\n"
-        "    cat output.log | term-snapshot --width=120 --height=40\n"
+        "    cat output.log | simple-termshot --width=120 --height=40\n"
         "\n"
         "EXIT CODES:\n"
         "    0    Success\n"
@@ -96,7 +96,7 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
     if (strncmp(arg, prefix, plen) != 0) return 0;
     const char *val = arg + plen;
     if (*val == '\0') {
-        fprintf(stderr, "term-snapshot: missing value for %s\n", prefix);
+        fprintf(stderr, "simple-termshot: missing value for %s\n", prefix);
         return -1;
     }
     char *end;
@@ -105,7 +105,7 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
     if (*end != '\0' || errno != 0 || v <= 0 ||
         v > TS_RENDER_MAX_DIMENSION) {
         fprintf(stderr,
-                "term-snapshot: invalid value '%s' for %s (must be 1-%d)\n",
+                "simple-termshot: invalid value '%s' for %s (must be 1-%d)\n",
                 val, prefix, TS_RENDER_MAX_DIMENSION);
         return -1;
     }
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
         }
         if (!options_done &&
             (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-V") == 0)) {
-            printf("term-snapshot %s\n", TERM_SNAPSHOT_VERSION);
+            printf("simple-termshot %s\n", SIMPLE_TERMSHOT_VERSION);
             return 0;
         }
         if (!options_done && strcmp(argv[i], "--") == 0) {
@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
         /* Support space-separated form: --width N / --height N */
         if (!options_done && strcmp(argv[i], "--width") == 0) {
             if (i + 1 >= argc) {
-                fprintf(stderr, "term-snapshot: --width requires a value\n");
+                fprintf(stderr, "simple-termshot: --width requires a value\n");
                 return TS_EXIT_BAD_ARGS;
             }
             char prefixed[64];
@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
 
         if (!options_done && strcmp(argv[i], "--height") == 0) {
             if (i + 1 >= argc) {
-                fprintf(stderr, "term-snapshot: --height requires a value\n");
+                fprintf(stderr, "simple-termshot: --height requires a value\n");
                 return TS_EXIT_BAD_ARGS;
             }
             char prefixed[64];
@@ -178,12 +178,12 @@ int main(int argc, char *argv[]) {
         }
 
         if (!options_done && argv[i][0] == '-' && strcmp(argv[i], "-") != 0) {
-            fprintf(stderr, "term-snapshot: unknown option '%s'\n"
-                            "Try 'term-snapshot --help' for usage.\n", argv[i]);
+            fprintf(stderr, "simple-termshot: unknown option '%s'\n"
+                            "Try 'simple-termshot --help' for usage.\n", argv[i]);
             return TS_EXIT_BAD_ARGS;
         }
         if (input_path != NULL) {
-            fprintf(stderr, "term-snapshot: only one input file may be specified\n");
+            fprintf(stderr, "simple-termshot: only one input file may be specified\n");
             return TS_EXIT_BAD_ARGS;
         }
         input_path = argv[i];
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
     if (input_path != NULL && strcmp(input_path, "-") != 0) {
         input = fopen(input_path, "rb");
         if (!input) {
-            fprintf(stderr, "term-snapshot: cannot open '%s': %s\n",
+            fprintf(stderr, "simple-termshot: cannot open '%s': %s\n",
                     input_path, strerror(errno));
             return 1;
         }
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
 
     ts_render_t *t = ts_render_create(height, width);
     if (!t) {
-        fprintf(stderr, "term-snapshot: failed to allocate terminal buffer (%dx%d)\n",
+        fprintf(stderr, "simple-termshot: failed to allocate terminal buffer (%dx%d)\n",
                 width, height);
         if (input != stdin) fclose(input);
         return 1;
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
     /* Read stdin in 64KB chunks and feed to emulator */
     char *buf = malloc(READ_BUF_SIZE);
     if (!buf) {
-        fprintf(stderr, "term-snapshot: failed to allocate read buffer\n");
+        fprintf(stderr, "simple-termshot: failed to allocate read buffer\n");
         ts_render_destroy(t);
         if (input != stdin) fclose(input);
         return 1;
@@ -228,14 +228,14 @@ int main(int argc, char *argv[]) {
     free(buf);
 
     if (ferror(input)) {
-        fprintf(stderr, "term-snapshot: read error on %s: %s\n",
+        fprintf(stderr, "simple-termshot: read error on %s: %s\n",
                 input_path != NULL ? input_path : "stdin", strerror(errno));
         if (input != stdin) fclose(input);
         ts_render_destroy(t);
         return 1;
     }
     if (input != stdin && fclose(input) != 0) {
-        fprintf(stderr, "term-snapshot: failed to close '%s': %s\n",
+        fprintf(stderr, "simple-termshot: failed to close '%s': %s\n",
                 input_path, strerror(errno));
         ts_render_destroy(t);
         return 1;
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
     /* Output final screen state */
     char *output = ts_render_snapshot(t);
     if (!output) {
-        fprintf(stderr, "term-snapshot: failed to allocate snapshot buffer\n");
+        fprintf(stderr, "simple-termshot: failed to allocate snapshot buffer\n");
         ts_render_destroy(t);
         return 1;
     }

@@ -59,7 +59,7 @@ considered confirmed after those jobs pass in the public repository.
 
 ## Deliberate boundaries
 
-`term-snapshot` is not linked to NBS and has no NBS runtime or build dependency.
+`simple-termshot` is not linked to NBS and has no NBS runtime or build dependency.
 It does not attempt to be a full xterm, retain scrollback, or replay a session
 over time. Its contract is narrower: consume a captured byte stream and return
 the final visible fixed-size screen.

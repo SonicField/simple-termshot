@@ -11,10 +11,10 @@ ALL_CFLAGS = $(BASE_CFLAGS) $(CFLAGS)
 ANALYZER_CC ?= gcc
 ANALYZER_CFLAGS ?= -O0 -g -fanalyzer
 
-TARGET = term-snapshot
+TARGET = simple-termshot
 BUILD_DIR = build
 TEST_TARGET = $(BUILD_DIR)/test_term_snapshot
-ANALYZE_TARGET = $(BUILD_DIR)/term-snapshot-analyze
+ANALYZE_TARGET = $(BUILD_DIR)/simple-termshot-analyze
 
 CORE_SOURCES = src/term_snapshot.c src/unicode_width.c src/bidi.c \
 	src/term_style.c

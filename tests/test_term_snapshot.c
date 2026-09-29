@@ -1,5 +1,5 @@
 /*
- * test_term_snapshot.c — Comprehensive term-snapshot test suite.
+ * test_term_snapshot.c — Comprehensive simple-termshot test suite.
  *
  * Tests the terminal emulator against known input/output pairs.
  * Each test creates a fresh terminal, feeds input, takes a snapshot,
@@ -1116,7 +1116,7 @@ TEST(test_preserve_sgr_reset_at_eol) {
 /* ══════════════════════════════════════════════════════════════════ */
 
 int main(void) {
-    printf("term-snapshot test suite\n");
+    printf("simple-termshot test suite\n");
     printf("========================\n\n");
 
     printf("Basic text rendering:\n");

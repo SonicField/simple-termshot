@@ -1,5 +1,5 @@
 /*
- * ts_assert.h — Always-on assertions for term-snapshot.
+ * ts_assert.h — Always-on assertions for simple-termshot.
  *
  * Unlike standard assert(), this macro:
  *   - Always fires (not gated by NDEBUG) — asserts are executable specifications

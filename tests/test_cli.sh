@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PROGRAM=${PROGRAM:-./term-snapshot}
+PROGRAM=${PROGRAM:-./simple-termshot}
 TESTS_RUN=0
 
 fail() {
@@ -18,18 +18,18 @@ assert_eq() {
     fi
 }
 
-tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/term-snapshot-test.XXXXXX")
+tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/simple-termshot-test.XXXXXX")
 trap 'rm -rf "$tmp_dir"' EXIT HUP INT TERM
 
 help=$($PROGRAM --help)
 case "$help" in
-    *"term-snapshot — Virtual terminal renderer"*) ;;
+    *"simple-termshot — Virtual terminal renderer"*) ;;
     *) fail '--help identifies the program' ;;
 esac
 TESTS_RUN=$((TESTS_RUN + 1))
 
 actual=$($PROGRAM --version)
-assert_eq 'term-snapshot 0.1.0' "$actual" '--version reports program version'
+assert_eq 'simple-termshot 0.1.0' "$actual" '--version reports program version'
 
 actual=$(printf 'Progress 10%%\rProgress 100%%\n' | \
     $PROGRAM --width=24 --height=4)

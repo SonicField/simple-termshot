@@ -1,6 +1,6 @@
-# term-snapshot
+# simple-termshot
 
-`term-snapshot` turns captured terminal output into the final screen a person
+`simple-termshot` turns captured terminal output into the final screen a person
 would have seen. It understands cursor movement, overwriting, clearing,
 scrolling, colours, Unicode width, and bidirectional text instead of treating
 the input as an ordinary text stream.
@@ -12,7 +12,7 @@ tests, logs, and AI workflows.
 For example, a carriage-return progress display contains both updates:
 
 ```sh
-printf 'Progress 10%%\rProgress 100%%\n' | term-snapshot
+printf 'Progress 10%%\rProgress 100%%\n' | simple-termshot
 ```
 
 The result contains only the final visible state:
@@ -28,7 +28,7 @@ make
 make test
 ```
 
-This produces `./term-snapshot`. To install it:
+This produces `./simple-termshot`. To install it:
 
 ```sh
 make install PREFIX="$HOME/.local"
@@ -41,10 +41,10 @@ Apple Clang.
 ## Usage
 
 ```sh
-term-snapshot capture.log
-term-snapshot < capture.log
-command-producing-terminal-codes | term-snapshot
-term-snapshot --width=120 --height=40 capture.log
+simple-termshot capture.log
+simple-termshot < capture.log
+command-producing-terminal-codes | simple-termshot
+simple-termshot --width=120 --height=40 capture.log
 ```
 
 Options:
@@ -107,7 +107,7 @@ The extraction history and its verification evidence are recorded in
 
 ## Origin and license
 
-`term-snapshot` was extracted from
+`simple-termshot` was extracted from
 [`SonicField/nbs-framework`](https://github.com/SonicField/nbs-framework).
 The path-filtered Git history retains the original authorship and commit
 messages.

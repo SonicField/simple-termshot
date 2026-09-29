@@ -1,4 +1,4 @@
 /build/
-/term-snapshot
+/simple-termshot
 *.o
 *.dSYM/
