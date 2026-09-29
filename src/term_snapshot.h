@@ -86,7 +86,7 @@ typedef struct {
     /* Tab stops (bitfield: 1 bit per column) */
     unsigned char *tab_stops;
 
-    /* SGR preservation mode (--no-strip) */
+    /* SGR preservation mode (--preserve-sgr) */
     int preserve_sgr;                  /* 0 = strip (default), 1 = preserve */
     term_style_t active_style;         /* current SGR state from input stream */
 } ts_render_t;

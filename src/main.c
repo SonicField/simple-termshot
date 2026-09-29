@@ -1,10 +1,10 @@
 /*
  * main.c — term-snapshot CLI entry point.
  *
- * Reads raw PTY output from stdin, processes it through the terminal
+ * Reads raw PTY output from a file or stdin, processes it through the terminal
  * emulator, and outputs the final screen state as plain text on stdout.
  *
- * Usage: term-snapshot [--width=N] [--height=N] [--help]
+ * Usage: term-snapshot [--width=N] [--height=N] [FILE]
  *        cat output.log | term-snapshot
  */
 
@@ -16,6 +16,8 @@
 #include <string.h>
 #include <errno.h>
 
+#define TERM_SNAPSHOT_VERSION "0.1.0"
+
 /* Exit code for invalid arguments. */
 #define TS_EXIT_BAD_ARGS 4
 
@@ -26,13 +28,13 @@ static void print_help(void) {
     printf(
         "term-snapshot — Virtual terminal renderer\n"
         "\n"
-        "Reads raw PTY output from stdin, processes it through a full\n"
+        "Reads raw PTY output from a file or stdin, processes it through a\n"
         "terminal emulator (cursor movement, scrolling, erase), strips\n"
         "all decoration (color, bold, italic, underline), and outputs\n"
         "the final screen state as plain UTF-8 text.\n"
         "\n"
         "USAGE:\n"
-        "    term-snapshot [OPTIONS]\n"
+        "    term-snapshot [OPTIONS] [FILE]\n"
         "    cat output.log | term-snapshot\n"
         "    term-snapshot < output.log\n"
         "\n"
@@ -41,8 +43,11 @@ static void print_help(void) {
         "                  Set screen width in columns (default: %d)\n"
         "    --height=N, --height N\n"
         "                  Set screen height in rows (default: %d)\n"
-        "    --no-strip    Preserve SGR colour/style escape sequences in output\n"
-        "    --help        Show this help message and exit\n"
+        "    --preserve-sgr\n"
+        "                  Preserve SGR colour/style escape sequences in output\n"
+        "    --no-strip    Alias for --preserve-sgr\n"
+        "    -h, --help    Show this help message and exit\n"
+        "    -V, --version Show the program version and exit\n"
         "\n"
         "DESCRIPTION:\n"
         "    term-snapshot acts as a headless terminal emulator. It maintains\n"
@@ -72,7 +77,7 @@ static void print_help(void) {
         "\n"
         "EXAMPLES:\n"
         "    # Render a captured terminal session:\n"
-        "    cat output.log | term-snapshot\n"
+        "    term-snapshot output.log\n"
         "\n"
         "    # Render with custom terminal size:\n"
         "    cat output.log | term-snapshot --width=120 --height=40\n"
@@ -109,30 +114,44 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
 int main(int argc, char *argv[]) {
     int width = TS_RENDER_DEFAULT_COLS;
     int height = TS_RENDER_DEFAULT_ROWS;
-    int no_strip = 0;
+    int preserve_sgr = 0;
+    int options_done = 0;
+    const char *input_path = NULL;
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+        if (!options_done &&
+            (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0)) {
             print_help();
             return 0;
         }
+        if (!options_done &&
+            (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-V") == 0)) {
+            printf("term-snapshot %s\n", TERM_SNAPSHOT_VERSION);
+            return 0;
+        }
+        if (!options_done && strcmp(argv[i], "--") == 0) {
+            options_done = 1;
+            continue;
+        }
 
         int result;
-        result = parse_int_arg(argv[i], "--width=", &width);
+        result = options_done ? 0 : parse_int_arg(argv[i], "--width=", &width);
         if (result == -1) return TS_EXIT_BAD_ARGS;
         if (result == 1) continue;
 
-        result = parse_int_arg(argv[i], "--height=", &height);
+        result = options_done ? 0 : parse_int_arg(argv[i], "--height=", &height);
         if (result == -1) return TS_EXIT_BAD_ARGS;
         if (result == 1) continue;
 
-        if (strcmp(argv[i], "--no-strip") == 0) {
-            no_strip = 1;
+        if (!options_done &&
+            (strcmp(argv[i], "--preserve-sgr") == 0 ||
+             strcmp(argv[i], "--no-strip") == 0)) {
+            preserve_sgr = 1;
             continue;
         }
 
         /* Support space-separated form: --width N / --height N */
-        if (strcmp(argv[i], "--width") == 0) {
+        if (!options_done && strcmp(argv[i], "--width") == 0) {
             if (i + 1 >= argc) {
                 fprintf(stderr, "term-snapshot: --width requires a value\n");
                 return TS_EXIT_BAD_ARGS;
@@ -144,7 +163,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        if (strcmp(argv[i], "--height") == 0) {
+        if (!options_done && strcmp(argv[i], "--height") == 0) {
             if (i + 1 >= argc) {
                 fprintf(stderr, "term-snapshot: --height requires a value\n");
                 return TS_EXIT_BAD_ARGS;
@@ -156,19 +175,37 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        fprintf(stderr, "term-snapshot: unknown option '%s'\n"
-                        "Try 'term-snapshot --help' for usage.\n", argv[i]);
-        return TS_EXIT_BAD_ARGS;
+        if (!options_done && argv[i][0] == '-' && strcmp(argv[i], "-") != 0) {
+            fprintf(stderr, "term-snapshot: unknown option '%s'\n"
+                            "Try 'term-snapshot --help' for usage.\n", argv[i]);
+            return TS_EXIT_BAD_ARGS;
+        }
+        if (input_path != NULL) {
+            fprintf(stderr, "term-snapshot: only one input file may be specified\n");
+            return TS_EXIT_BAD_ARGS;
+        }
+        input_path = argv[i];
+    }
+
+    FILE *input = stdin;
+    if (input_path != NULL && strcmp(input_path, "-") != 0) {
+        input = fopen(input_path, "rb");
+        if (!input) {
+            fprintf(stderr, "term-snapshot: cannot open '%s': %s\n",
+                    input_path, strerror(errno));
+            return 1;
+        }
     }
 
     ts_render_t *t = ts_render_create(height, width);
     if (!t) {
         fprintf(stderr, "term-snapshot: failed to allocate terminal buffer (%dx%d)\n",
                 width, height);
+        if (input != stdin) fclose(input);
         return 1;
     }
 
-    if (no_strip) {
+    if (preserve_sgr) {
         ts_render_set_preserve_sgr(t, 1);
     }
 
@@ -177,18 +214,27 @@ int main(int argc, char *argv[]) {
     if (!buf) {
         fprintf(stderr, "term-snapshot: failed to allocate read buffer\n");
         ts_render_destroy(t);
+        if (input != stdin) fclose(input);
         return 1;
     }
 
     size_t n;
-    while ((n = fread(buf, 1, READ_BUF_SIZE, stdin)) > 0) {
+    while ((n = fread(buf, 1, READ_BUF_SIZE, input)) > 0) {
         ts_render_feed(t, buf, n);
     }
 
     free(buf);
 
-    if (ferror(stdin)) {
-        fprintf(stderr, "term-snapshot: read error on stdin: %s\n", strerror(errno));
+    if (ferror(input)) {
+        fprintf(stderr, "term-snapshot: read error on %s: %s\n",
+                input_path != NULL ? input_path : "stdin", strerror(errno));
+        if (input != stdin) fclose(input);
+        ts_render_destroy(t);
+        return 1;
+    }
+    if (input != stdin && fclose(input) != 0) {
+        fprintf(stderr, "term-snapshot: failed to close '%s': %s\n",
+                input_path, strerror(errno));
         ts_render_destroy(t);
         return 1;
     }

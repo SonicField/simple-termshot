@@ -1205,7 +1205,7 @@ int main(void) {
     RUN_TEST(test_bidi_hebrew_multiline);
     RUN_TEST(test_bidi_bracket_mirroring);
 
-    printf("\nSGR preservation (--no-strip):\n");
+    printf("\nSGR preservation:\n");
     RUN_TEST(test_preserve_sgr_bold);
     RUN_TEST(test_preserve_sgr_256_color);
     RUN_TEST(test_preserve_sgr_off_is_default);
