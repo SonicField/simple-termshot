@@ -18,6 +18,7 @@
 /* Default size used when the capture's terminal dimensions are unknown. */
 #define TS_RENDER_DEFAULT_COLS 80
 #define TS_RENDER_DEFAULT_ROWS 24
+#define TS_RENDER_MAX_DIMENSION 10000
 
 /* Maximum UTF-8 bytes per cell (8 to fit base char + combining marks) */
 #define TS_RENDER_CELL_BYTES 8
@@ -93,7 +94,8 @@ typedef struct {
 
 /*
  * Create a new terminal emulator with the given dimensions.
- * Returns NULL on allocation failure.
+ * Returns NULL when either dimension is outside 1..TS_RENDER_MAX_DIMENSION
+ * or when allocation fails.
  */
 ts_render_t *ts_render_create(int rows, int cols);
 

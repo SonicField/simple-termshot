@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
@@ -840,22 +841,25 @@ static void process_byte(ts_render_t *t, unsigned char ch) {
 /* ── Public API ───────────────────────────────────────────────────── */
 
 ts_render_t *ts_render_create(int rows, int cols) {
-    ASSERT_MSG(rows > 0, "ts_render_create: rows must be positive, got %d", rows);
-    ASSERT_MSG(cols > 0, "ts_render_create: cols must be positive, got %d", cols);
+    if (rows <= 0 || rows > TS_RENDER_MAX_DIMENSION ||
+        cols <= 0 || cols > TS_RENDER_MAX_DIMENSION) {
+        return NULL;
+    }
 
     ts_render_t *t = calloc(1, sizeof(ts_render_t));
     if (!t) return NULL;
 
     t->rows = rows;
     t->cols = cols;
-    t->cells = calloc((size_t)(rows * cols), sizeof(ts_render_cell_t));
+    size_t cell_count = (size_t)rows * (size_t)cols;
+    t->cells = calloc(cell_count, sizeof(ts_render_cell_t));
     if (!t->cells) {
         free(t);
         return NULL;
     }
 
-    int tab_bytes = (cols + 7) / 8;
-    t->tab_stops = calloc(1, (size_t)tab_bytes);
+    size_t tab_bytes = ((size_t)cols + 7) / 8;
+    t->tab_stops = calloc(1, tab_bytes);
     if (!t->tab_stops) {
         free(t->cells);
         free(t);
@@ -895,7 +899,11 @@ char *ts_render_snapshot(const ts_render_t *t) {
 
     /* Worst case: each cell is cell_bytes + SGR overhead (~64 bytes) + newline + NUL */
     size_t sgr_overhead = t->preserve_sgr ? TERM_STYLE_BUFSIZE : 0;
-    size_t buf_size = (size_t)(t->rows * (t->cols * (TS_RENDER_CELL_BYTES + sgr_overhead) + 1)) + 64;
+    size_t bytes_per_cell = TS_RENDER_CELL_BYTES + sgr_overhead;
+    if ((size_t)t->cols > (SIZE_MAX - 1) / bytes_per_cell) return NULL;
+    size_t bytes_per_row = (size_t)t->cols * bytes_per_cell + 1;
+    if ((size_t)t->rows > (SIZE_MAX - 64) / bytes_per_row) return NULL;
+    size_t buf_size = (size_t)t->rows * bytes_per_row + 64;
     char *buf = malloc(buf_size);
     if (!buf) return NULL;
 

@@ -680,6 +680,51 @@ TEST(test_feed_split_utf8) {
     ts_render_destroy(t);
 }
 
+TEST(test_feed_chunk_invariance) {
+    static const char input[] =
+        "first line\n"
+        "progress 10%\rprogress 90%\n"
+        "\x1b[31mred\x1b[0m and \xe4\xb8\x96\xe7\x95\x8c\n"
+        "\x1b[2A\x1b[5Coverwrite";
+    const size_t input_len = sizeof(input) - 1;
+
+    ts_render_t *whole = ts_render_create(6, 32);
+    ASSERT_MSG(whole != NULL, "chunk invariance: whole renderer allocated");
+    ts_render_feed(whole, input, input_len);
+    char *expected = ts_render_snapshot(whole);
+    ASSERT_MSG(expected != NULL, "chunk invariance: whole snapshot allocated");
+
+    for (size_t chunk = 1; chunk <= 7; chunk++) {
+        ts_render_t *split = ts_render_create(6, 32);
+        ASSERT_MSG(split != NULL, "chunk invariance: split renderer allocated");
+        for (size_t offset = 0; offset < input_len; offset += chunk) {
+            size_t remaining = input_len - offset;
+            size_t length = remaining < chunk ? remaining : chunk;
+            ts_render_feed(split, input + offset, length);
+        }
+        char *actual = ts_render_snapshot(split);
+        ASSERT_MSG(actual != NULL, "chunk invariance: split snapshot allocated");
+        ASSERT_MSG(strcmp(actual, expected) == 0,
+                   "chunk invariance: differs for chunk size %zu", chunk);
+        free(actual);
+        ts_render_destroy(split);
+    }
+
+    free(expected);
+    ts_render_destroy(whole);
+}
+
+TEST(test_rejects_excessive_dimensions) {
+    ts_render_t *zero = ts_render_create(0, 1);
+    ts_render_t *negative = ts_render_create(1, -1);
+    ts_render_t *too_wide = ts_render_create(1, 10001);
+    ts_render_t *too_tall = ts_render_create(10001, 1);
+    ASSERT_MSG(zero == NULL, "dimensions: zero rejected");
+    ASSERT_MSG(negative == NULL, "dimensions: negative value rejected");
+    ASSERT_MSG(too_wide == NULL, "dimensions: excessive width rejected");
+    ASSERT_MSG(too_tall == NULL, "dimensions: excessive height rejected");
+}
+
 /* ══════════════════════════════════════════════════════════════════ */
 /*  UTF-8 + ESCAPE INTERACTION                                       */
 /* ══════════════════════════════════════════════════════════════════ */
@@ -1219,6 +1264,8 @@ int main(void) {
     RUN_TEST(test_multiple_feeds);
     RUN_TEST(test_feed_split_escape);
     RUN_TEST(test_feed_split_utf8);
+    RUN_TEST(test_feed_chunk_invariance);
+    RUN_TEST(test_rejects_excessive_dimensions);
 
     printf("\n========================\n");
     printf("Results: %d/%d passed", tests_passed, tests_run);

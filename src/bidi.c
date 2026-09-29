@@ -798,24 +798,17 @@ int bidi_reorder_with_levels(const uint32_t *codepoints, int count,
     /* Recompute levels for the caller (needed for mirroring decisions) */
     /* We need to know which positions are at odd levels */
     if (out_levels) {
-        bidi_type_t *types = malloc((size_t)count * sizeof(bidi_type_t));
-        if (types) {
-            for (int i = 0; i < count; i++)
-                types[i] = bidi_type(codepoints[i]);
-
-            /* Simplified level computation — just check if char is R/AL type */
-            for (int i = 0; i < count; i++) {
-                bidi_type_t t = types[i];
-                if (t == BIDI_R || t == BIDI_AL || t == BIDI_AN)
-                    out_levels[i] = 1;
-                else if (para_level == 1 && (t == BIDI_ON || t == BIDI_WS ||
-                         t == BIDI_CS || t == BIDI_ES || t == BIDI_ET ||
-                         t == BIDI_NSM || t == BIDI_BN))
-                    out_levels[i] = 1; /* neutrals in RTL paragraph */
-                else
-                    out_levels[i] = 0;
-            }
-            free(types);
+        /* Simplified level computation — just check if char is R/AL type. */
+        for (int i = 0; i < count; i++) {
+            bidi_type_t type = bidi_type(codepoints[i]);
+            if (type == BIDI_R || type == BIDI_AL || type == BIDI_AN)
+                out_levels[i] = 1;
+            else if (para_level == 1 && (type == BIDI_ON || type == BIDI_WS ||
+                     type == BIDI_CS || type == BIDI_ES || type == BIDI_ET ||
+                     type == BIDI_NSM || type == BIDI_BN))
+                out_levels[i] = 1; /* neutrals in RTL paragraph */
+            else
+                out_levels[i] = 0;
         }
     }
     return para_level;

@@ -102,9 +102,11 @@ static int parse_int_arg(const char *arg, const char *prefix, int *out) {
     char *end;
     errno = 0;
     long v = strtol(val, &end, 10);
-    if (*end != '\0' || errno != 0 || v <= 0 || v > 10000) {
-        fprintf(stderr, "term-snapshot: invalid value '%s' for %s (must be 1-10000)\n",
-                val, prefix);
+    if (*end != '\0' || errno != 0 || v <= 0 ||
+        v > TS_RENDER_MAX_DIMENSION) {
+        fprintf(stderr,
+                "term-snapshot: invalid value '%s' for %s (must be 1-%d)\n",
+                val, prefix, TS_RENDER_MAX_DIMENSION);
         return -1;
     }
     *out = (int)v;
