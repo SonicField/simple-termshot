@@ -1,9 +1,9 @@
 # simple-termshot
 
-`simple-termshot` turns captured terminal output into the final screen a person
-would have seen. It understands cursor movement, overwriting, clearing,
-scrolling, colours, Unicode width, and bidirectional text instead of treating
-the input as an ordinary text stream.
+`simple-termshot` turns captured terminal output into the final fixed-size
+screen produced by its documented terminal model. It applies a focused subset
+of VT100/xterm cursor movement, overwriting, clearing, scrolling, and styling
+instead of treating the input as an ordinary text stream.
 
 It is a small C program with no runtime dependencies beyond a POSIX-like
 system. The normal output is plain UTF-8, which makes it useful in scripts,
@@ -65,22 +65,30 @@ positions depend on them.
 By default, decoration is removed. `--preserve-sgr` emits terminal escape
 sequences, so redirect its output to a file first when handling untrusted data.
 
-## What it understands
+## Supported rendering model
 
-- VT100/xterm cursor positioning and relative movement
-- Screen and line erase operations
-- Scrolling and scroll regions
-- Line and character insertion/deletion
-- Tabs, cursor save/restore, reset, CR, LF, backspace, and reverse index
-- UTF-8, combining marks, CJK/emoji display widths, and bidirectional text
-- SGR attributes and 16/256-colour forms when preservation is requested
-- Safe consumption of OSC and DCS strings
+- A fixed primary screen with delayed auto-wrap, scrolling, and scroll regions
+- VT100/xterm cursor positioning, erasure, line/character editing, and tabs
+- CR, backspace, and a deliberate newline mode in which bare LF also returns
+  the cursor to column zero
+- Valid UTF-8 with bundled Unicode 15.1 zero-width and double-width tables
+- Per-line visual ordering for ordinary mixed-direction text, backed by a
+  Unicode 13.0 UAX #9 resolver and mirrored-character data
+- SGR attributes and 16/256-colour output when preservation is requested;
+  RGB input is quantised to the xterm 256-colour palette
+- Consumption of OSC strings terminated by BEL or ST and DCS strings
+  terminated by ST
 
 This is deliberately a focused terminal renderer, not a complete xterm. It
 produces the final fixed-size screen, not scrollback or a time-based replay.
-Unknown and unsupported controls are ignored. Alternate-screen mode switches
-are ignored, although the clear-and-home sequences applications normally send
-with them are handled.
+It does not model alternate screens, terminal queries, character-set
+designation, configurable modes, grapheme shaping, or Arabic joining. Unknown
+and unsupported controls are ignored. Alternate-screen mode switches are
+ignored, although separately supported clear-and-home sequences still act on
+the one screen.
+
+The exact control subset, output normalization, Unicode behavior, and failure
+boundaries are documented in [`docs/TERMINAL.md`](docs/TERMINAL.md).
 
 ## Tests
 
@@ -95,9 +103,11 @@ Warnings fail the build. The suite covers realistic terminal sessions,
 malformed sequences, split input chunks, Unicode, wide characters, bidi,
 scrolling, cursor operations, and SGR handling.
 
-Bidirectional processing implements UAX #9 with bundled Unicode 13.0.0
-properties. Its algorithm, data provenance, and conformance evidence are
-documented in [`docs/BIDI.md`](docs/BIDI.md).
+The bundled bidirectional resolver implements UAX #9 with Unicode 13.0.0
+properties. The terminal snapshot applies that resolver to screen-cell text;
+directional formatting controls are outside the supported snapshot contract.
+Its algorithm, integration boundary, data provenance, and conformance evidence
+are documented in [`docs/BIDI.md`](docs/BIDI.md).
 
 ## Code layout
 

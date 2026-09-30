@@ -1,12 +1,12 @@
 /*
  * term_snapshot.h — Virtual terminal emulator: public API.
  *
- * Maintains an internal screen buffer (fixed cell grid) and processes
- * raw PTY output byte-by-byte through a VT100/xterm state machine.
- * Strips decoration escapes (color, bold, italic, underline) but
- * respects positional commands (cursor movement, scrolling, erase).
+ * Maintains an internal screen buffer (fixed cell grid) and processes raw PTY
+ * output byte-by-byte using the supported VT100/xterm-compatible subset in
+ * docs/TERMINAL.md. Decoration is stripped unless SGR preservation is enabled.
  *
- * Output: the final screen state as plain UTF-8 text.
+ * Output: a visual-order snapshot of the final screen as UTF-8 text, with
+ * optional reconstructed SGR styling.
  */
 
 #ifndef TERM_SNAPSHOT_H

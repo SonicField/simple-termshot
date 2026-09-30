@@ -27,6 +27,21 @@ case "$help" in
     *) fail '--help identifies the program' ;;
 esac
 TESTS_RUN=$((TESTS_RUN + 1))
+case "$help" in
+    *"documented"*"subset of terminal control sequences"*) ;;
+    *) fail '--help omitted the renderer compatibility boundary' ;;
+esac
+TESTS_RUN=$((TESTS_RUN + 1))
+case "$help" in
+    *"SGR is stripped by default"*) ;;
+    *) fail '--help did not distinguish default and preserved SGR output' ;;
+esac
+TESTS_RUN=$((TESTS_RUN + 1))
+case "$help" in
+    *"Unicode 15.1 cell widths"*"Unicode 13.0 UAX #9 data"*) ;;
+    *) fail '--help omitted the Unicode data versions' ;;
+esac
+TESTS_RUN=$((TESTS_RUN + 1))
 
 actual=$($PROGRAM --version)
 assert_eq 'simple-termshot 0.1.0' "$actual" '--version reports program version'
@@ -57,6 +72,12 @@ printf '\033[1mbold\033[0m\n' | \
 actual=$(od -An -tx1 -v "$tmp_dir/preserve.out" | tr -d ' \n')
 assert_eq '1b5b316d626f6c641b5b306d0a' "$actual" \
     'descriptive SGR preservation option'
+
+printf '\033[38;2;255;0;0mred\033[0m\n' | \
+    $PROGRAM --width=12 --height=2 --preserve-sgr >"$tmp_dir/truecolor.out"
+actual=$(od -An -tx1 -v "$tmp_dir/truecolor.out" | tr -d ' \n')
+assert_eq '1b5b33383b353b3139366d7265641b5b306d0a' "$actual" \
+    'truecolour input is quantised to the xterm 256-colour palette'
 
 set +e
 $PROGRAM --width=0 </dev/null >"$tmp_dir/bad.out" 2>"$tmp_dir/bad.err"

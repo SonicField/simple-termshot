@@ -1,9 +1,33 @@
 # Bidirectional text verification
 
-`simple-termshot` implements Unicode Standard Annex #9 for each rendered line.
-The implementation includes explicit embeddings and overrides, isolates,
-isolating run sequences, weak and neutral resolution, paired-bracket rule N0,
-implicit levels, line resets, reordering, and glyph mirroring.
+The bundled bidi resolver implements Unicode Standard Annex #9. The resolver
+includes explicit embeddings and overrides, isolates, isolating run sequences,
+weak and neutral resolution, paired-bracket rule N0, implicit levels, line
+resets, reordering, and mirrored-character lookup.
+
+The terminal renderer applies the resolver independently to each screen row
+when it creates a snapshot. It auto-detects the paragraph direction and emits
+the row in visual order. A consumer that applies its own bidi algorithm to this
+already reordered text can therefore display a different order.
+
+## Terminal integration boundary
+
+The UAX #9 conformance claim applies to the resolver in `src/bidi.c`. The
+fixed-cell terminal model passes the first Unicode scalar value stored in each
+screen cell to that resolver. Combining marks stored with a base character move
+with that cell.
+
+Zero-width directional formatting characters are not represented as separate
+screen cells. Consequently the terminal snapshot does not expose embeddings,
+overrides, or isolates from the input stream to the resolver as independent
+items. Do not rely on those controls to determine CLI snapshot ordering. They
+remain covered by the resolver API and its conformance suite.
+
+UAX #9 determines ordering, not complete text shaping. `simple-termshot` does
+not perform Arabic joining, ligature formation, font selection, or general
+grapheme-cluster shaping. It applies the bundled mirroring mapping to characters
+at odd resolved levels. See [`TERMINAL.md`](TERMINAL.md) for the wider Unicode
+and fixed-cell behavior.
 
 ## Unicode data
 
@@ -35,9 +59,10 @@ currently execute 861,940 cases and compare the exact paragraph level, resolved
 levels (including X9 removals), and visual ordering required by Unicode.
 
 The checked-in source files and their SHA-256 digests are documented in
-`tests/unicode/13.0.0/README.md`. Passing these corpora is strong conformance
-evidence, not a mathematical proof of correctness outside their scope; as the
-file headers note, rules L3 and L4 are rendering responsibilities.
+`tests/unicode/13.0.0/README.md`. Passing these corpora is strong evidence for
+the resolver, not a mathematical proof and not evidence that every terminal
+integration path implements every formatting-control case. As the corpus
+headers note, rules L3 and L4 are rendering responsibilities.
 
 The same target also exhaustively checks lookup behavior for all Unicode scalar
 values against the generated tables: 699 bidi ranges, 120 paired brackets, and
