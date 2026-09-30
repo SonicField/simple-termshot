@@ -165,6 +165,12 @@ static uint32_t utf8_to_codepoint(const char *ch, int len) {
     return 0xFFFD; /* replacement character */
 }
 
+static int is_bidi_control(uint32_t cp) {
+    return cp == 0x061C || cp == 0x200E || cp == 0x200F ||
+        (cp >= 0x202A && cp <= 0x202E) ||
+        (cp >= 0x2066 && cp <= 0x2069);
+}
+
 /* ── Put a printable character at cursor ──────────────────────────── */
 
 static void put_char(ts_render_t *t, const char *ch, int len) {
@@ -172,9 +178,10 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
                "put_char: invalid char length %d", len);
 
     uint32_t cp = utf8_to_codepoint(ch, len);
+    if (is_bidi_control(cp)) return;
     int width = unicode_width(cp);
 
-    /* Width 0: combining mark — append to previous cell */
+    /* Width 0: combining or format character — append to previous cell */
     if (width == 0) {
         int prev_col = t->cursor_col;
         if (t->pending_wrap) prev_col = t->cols - 1;
@@ -193,7 +200,7 @@ static void put_char(ts_render_t *t, const char *ch, int len) {
             memcpy(prev->ch + prev->len, ch, (size_t)len);
             prev->len += len;
         }
-        /* else: drop the combining mark (cell full) */
+        /* else: drop the zero-width character (cell full) */
         return;
     }
 

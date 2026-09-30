@@ -73,7 +73,8 @@ sequences, so redirect its output to a file first when handling untrusted data.
   the cursor to column zero
 - Valid UTF-8 with bundled Unicode 15.1 zero-width and double-width tables
 - Per-line visual ordering for ordinary mixed-direction text, backed by a
-  Unicode 13.0 UAX #9 resolver and mirrored-character data
+  Unicode 13.0 UAX #9 resolver and mirrored-character data; Unicode
+  `Bidi_Control` input characters are discarded
 - SGR attributes and 16/256-colour output when preservation is requested;
   RGB input is quantised to the xterm 256-colour palette
 - Consumption of OSC strings terminated by BEL or ST and DCS strings
@@ -93,7 +94,7 @@ boundaries are documented in [`docs/TERMINAL.md`](docs/TERMINAL.md).
 ## Tests
 
 ```sh
-make test       # 104 core cases plus black-box CLI checks
+make test       # 106 core cases plus black-box CLI checks
 make sanitize   # tests under AddressSanitizer and UBSan
 make analyze    # GCC path-sensitive static analysis
 make test-bidi-conformance # official Unicode 13.0 UAX #9 corpora
@@ -104,10 +105,10 @@ malformed sequences, split input chunks, Unicode, wide characters, bidi,
 scrolling, cursor operations, and SGR handling.
 
 The bundled bidirectional resolver implements UAX #9 with Unicode 13.0.0
-properties. The terminal snapshot applies that resolver to screen-cell text;
-directional formatting controls are outside the supported snapshot contract.
-Its algorithm, integration boundary, data provenance, and conformance evidence
-are documented in [`docs/BIDI.md`](docs/BIDI.md).
+properties. The terminal snapshot applies that resolver to ordinary screen-cell
+text after discarding directional formatting controls. Its algorithm,
+integration boundary, data provenance, and conformance evidence are documented
+in [`docs/BIDI.md`](docs/BIDI.md).
 
 ## Code layout
 

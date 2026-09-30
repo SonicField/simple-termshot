@@ -22,9 +22,14 @@ static int tests_failed = 0;
     tests_run++; \
     printf("  %-50s ", #name); \
     fflush(stdout); \
+    int failures_before = tests_failed; \
     name(); \
-    printf("PASS\n"); \
-    tests_passed++; \
+    if (tests_failed == failures_before) { \
+        printf("PASS\n"); \
+        tests_passed++; \
+    } else { \
+        printf("FAIL\n"); \
+    } \
 } while(0)
 
 /* Feed a NUL-terminated string (convenience) */
@@ -55,7 +60,6 @@ static void assert_snapshot(ts_render_t *t, const char *expected, const char *te
         fprintf(stderr, "]\n");
         free(snap);
         tests_failed++;
-        tests_run++;
         /* Don't abort — continue with other tests */
         return;
     }
@@ -1012,6 +1016,36 @@ TEST(test_bidi_bracket_mirroring) {
     ts_render_destroy(t);
 }
 
+TEST(test_bidi_controls_discarded) {
+    ts_render_t *t = ts_render_create(3, 40);
+    /* Every Unicode Bidi_Control value is discarded at input. */
+    feed_str(t,
+        "A\xd8\x9c"             /* ALM */
+        "B\xe2\x80\x8e"       /* LRM */
+        "C\xe2\x80\x8f"       /* RLM */
+        "D\xe2\x80\xaa"       /* LRE */
+        "E\xe2\x80\xab"       /* RLE */
+        "F\xe2\x80\xac"       /* PDF */
+        "G\xe2\x80\xad"       /* LRO */
+        "H\xe2\x80\xae"       /* RLO */
+        "I\xe2\x81\xa6"       /* LRI */
+        "J\xe2\x81\xa7"       /* RLI */
+        "K\xe2\x81\xa8"       /* FSI */
+        "L\xe2\x81\xa9"       /* PDI */
+        "M");
+    assert_snapshot(t, "ABCDEFGHIJKLM\n", "bidi_controls_discarded");
+    ts_render_destroy(t);
+}
+
+TEST(test_bidi_control_split_feed) {
+    ts_render_t *t = ts_render_create(3, 20);
+    ts_render_feed(t, "A\xe2", 2);
+    ts_render_feed(t, "\x80", 1);
+    ts_render_feed(t, "\xae" "B", 2); /* Complete RLO, then write B. */
+    assert_snapshot(t, "AB\n", "bidi_control_split_feed");
+    ts_render_destroy(t);
+}
+
 /* ══════════════════════════════════════════════════════════════════ */
 /*  SGR PRESERVATION (--no-strip)                                    */
 /* ══════════════════════════════════════════════════════════════════ */
@@ -1250,6 +1284,8 @@ int main(void) {
     RUN_TEST(test_bidi_hebrew_with_sgr);
     RUN_TEST(test_bidi_hebrew_multiline);
     RUN_TEST(test_bidi_bracket_mirroring);
+    RUN_TEST(test_bidi_controls_discarded);
+    RUN_TEST(test_bidi_control_split_feed);
 
     printf("\nSGR preservation:\n");
     RUN_TEST(test_preserve_sgr_bold);

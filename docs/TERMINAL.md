@@ -64,6 +64,10 @@ four-byte sequences across arbitrary input chunks. Invalid leading bytes,
 stray continuation bytes, and interrupted sequences are discarded; malformed
 scalar encodings are outside the supported input contract.
 
+Characters with the Unicode `Bidi_Control` property are discarded. This set is
+ALM, LRM, RLM, LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, and PDI. They neither
+change snapshot ordering nor appear in output.
+
 Cell widths use bundled Unicode 15.1 East Asian Width and General Category
 data. Combining and selected format characters have width zero. East Asian
 Wide and Fullwidth characters, together with the bundled emoji ranges, have
@@ -78,11 +82,8 @@ composition, font shaping, or Arabic joining.
 
 At snapshot time, the renderer applies its Unicode 13.0 UAX #9 resolver to the
 first scalar value in each screen cell and emits visual-order text. Combining
-bytes stored with a base character move with that cell. Directional formatting
-characters stored as zero-width additions are not independent resolver items,
-so embeddings, overrides, and isolates from the terminal input are not a
-supported way to control snapshot ordering. The resolver itself and its
-conformance scope are documented in [`BIDI.md`](BIDI.md).
+bytes stored with a base character move with that cell. The resolver itself and
+its wider conformance scope are documented in [`BIDI.md`](BIDI.md).
 
 ## Ignored and unsupported behavior
 
@@ -99,9 +100,9 @@ consumed rather than displayed; an unterminated payload consumes the remainder
 of the input. Unknown sequences are ignored after their bytes are consumed.
 
 The renderer is not a security boundary. Plain output removes the terminal
-controls recognized by this parser, but it can retain meaningful Unicode
-format characters and must not be treated as safe shell, HTML, or programming
-language input.
+controls recognized by this parser and the Unicode `Bidi_Control` set, but it
+can retain other meaningful Unicode format characters and must not be treated
+as safe shell, HTML, or programming language input.
 
 ## Exit status
 

@@ -42,6 +42,11 @@ case "$help" in
     *) fail '--help omitted the Unicode data versions' ;;
 esac
 TESTS_RUN=$((TESTS_RUN + 1))
+case "$help" in
+    *"Bidi_Control input characters are discarded"*) ;;
+    *) fail '--help omitted the bidi-control input policy' ;;
+esac
+TESTS_RUN=$((TESTS_RUN + 1))
 
 actual=$($PROGRAM --version)
 assert_eq 'simple-termshot 0.1.0' "$actual" '--version reports program version'
@@ -60,6 +65,9 @@ assert_eq 'aftere' "$actual" 'reads a capture directly from a file'
 
 actual=$(printf 'stdin\n' | $PROGRAM --width=12 --height=2 -)
 assert_eq 'stdin' "$actual" 'explicit dash reads standard input'
+
+actual=$(printf 'A\342\200\256B\n' | $PROGRAM --width=12 --height=2)
+assert_eq 'AB' "$actual" 'Unicode bidi controls are discarded'
 
 printf '\033[38;5;1mred\033[0m\n' | \
     $PROGRAM --width=12 --height=2 --no-strip >"$tmp_dir/sgr.out"

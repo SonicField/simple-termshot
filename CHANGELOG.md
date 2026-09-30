@@ -10,6 +10,9 @@
   executions verify exact paragraph levels, resolved levels, and visual order.
 - Document the exact terminal-control, SGR, Unicode-width, output-normalization,
   and bidi-integration boundaries, and align the command-line help with them.
+- Discard Unicode `Bidi_Control` input characters so unsupported directional
+  controls cannot leak into visual-order snapshots.
+- Correct failed-test accounting in the core test runner.
 
 ## 0.1.0 — 2026-09-29
 

@@ -73,6 +73,7 @@ static void print_help(void) {
         "    Strings:          OSC terminated by BEL/ST; DCS terminated by ST\n"
         "    Unicode:          Valid UTF-8 and Unicode 15.1 cell widths\n"
         "    Bidirectional:    Per-line visual order using Unicode 13.0 UAX #9 data\n"
+        "                      Bidi_Control input characters are discarded\n"
         "\n"
         "    SGR is stripped by default; --preserve-sgr reconstructs supported\n"
         "    attributes and colours. RGB input is quantised to 256 colours.\n"

@@ -46,8 +46,8 @@ After reorganisation, the same 102 cases passed before new behavior was added.
 
 The standalone repository now verifies:
 
-- 104 core cases, including feed-chunk invariance and dimension boundaries.
-- 16 black-box CLI assertions against the built executable.
+- 106 core cases, including feed-chunk invariance and dimension boundaries.
+- 18 black-box CLI assertions against the built executable.
 - GCC with `-Wall -Wextra -Wshadow -Werror`.
 - AddressSanitizer and UndefinedBehaviorSanitizer.
 - GCC `-fanalyzer` and ShellCheck.
