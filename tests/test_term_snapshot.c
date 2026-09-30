@@ -521,8 +521,10 @@ TEST(test_utf8_overwrite) {
 
 TEST(test_private_mode_ignored) {
     ts_render_t *t = ts_render_create(3, 20);
-    /* DECSET cursor visibility, bracketed paste, etc. */
-    feed_str(t, "\x1b[?25l\x1b[?2004hHello\x1b[?25h\x1b[?2004l");
+    /* DEC private modes, secondary attributes, and soft reset are ignored. */
+    feed_str(t,
+        "\x1b[?25l\x1b[?2004h\x1b[?7l"
+        "\x1b[>5h\x1b[!pHello\x1b[?25h\x1b[?2004l");
     assert_snapshot(t, "Hello\n", "private_mode_ignored");
     ts_render_destroy(t);
 }
@@ -1147,6 +1149,327 @@ TEST(test_preserve_sgr_reset_at_eol) {
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
+/*  DOCUMENTED CONTRACT BOUNDARIES                                   */
+/* ══════════════════════════════════════════════════════════════════ */
+
+TEST(test_trailing_spaces_trimmed) {
+    ts_render_t *t = ts_render_create(3, 10);
+    feed_str(t, "A   ");
+    assert_snapshot(t, "A\n", "trailing_spaces_trimmed");
+    ts_render_destroy(t);
+}
+
+TEST(test_trailing_blank_rows_omitted) {
+    ts_render_t *t = ts_render_create(4, 10);
+    feed_str(t, "A\r\n\r\n");
+    assert_snapshot(t, "A\n", "trailing_blank_rows_omitted");
+    ts_render_destroy(t);
+}
+
+TEST(test_hvp_cursor_position) {
+    ts_render_t *t = ts_render_create(3, 10);
+    feed_str(t, "ABCD\r\nEFGH\x1b[1;3fX");
+    assert_snapshot(t, "ABXD\nEFGH\n", "hvp_cursor_position");
+    ts_render_destroy(t);
+}
+
+TEST(test_erase_scrollback_mode) {
+    ts_render_t *t = ts_render_create(3, 10);
+    feed_str(t, "content\x1b[3J");
+    assert_snapshot(t, "\n", "erase_scrollback_mode");
+    ts_render_destroy(t);
+}
+
+TEST(test_index_control) {
+    ts_render_t *t = ts_render_create(3, 10);
+    feed_str(t, "A\x1b" "D" "B");
+    assert_snapshot(t, "A\n B\n", "index_control");
+    ts_render_destroy(t);
+}
+
+TEST(test_next_line_control) {
+    ts_render_t *t = ts_render_create(3, 10);
+    feed_str(t, "A\x1b" "E" "B");
+    assert_snapshot(t, "A\nB\n", "next_line_control");
+    ts_render_destroy(t);
+}
+
+TEST(test_horizontal_tab_set) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[3g\x1b[4G\x1b" "H" "\x1b[1GA\tB");
+    assert_snapshot(t, "A  B\n", "horizontal_tab_set");
+    ts_render_destroy(t);
+}
+
+TEST(test_tab_clear_current) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[3g\x1b[4G\x1b" "H" "\x1b[g\x1b[1GA\tB");
+    assert_snapshot(t, "A        B\n", "tab_clear_current");
+    ts_render_destroy(t);
+}
+
+TEST(test_tab_clear_all) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[3gA\tB");
+    assert_snapshot(t, "A        B\n", "tab_clear_all");
+    ts_render_destroy(t);
+}
+
+TEST(test_reset_scroll_region) {
+    ts_render_t *t = ts_render_create(4, 8);
+    feed_str(t, "\x1b[2;3r\x1b" "c");
+    feed_str(t, "1\r\n2\r\n3\r\n4\r\n5");
+    assert_snapshot(t, "2\n3\n4\n5\n", "reset_scroll_region");
+    ts_render_destroy(t);
+}
+
+TEST(test_reset_tab_stops) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[3g\x1b" "cA\tB");
+    assert_snapshot(t, "A       B\n", "reset_tab_stops");
+    ts_render_destroy(t);
+}
+
+TEST(test_reset_parser_state) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "old\x1b[12\x1b" "cX");
+    assert_snapshot(t, "X\n", "reset_parser_state");
+    ts_render_destroy(t);
+}
+
+TEST(test_reset_active_style) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[1mA\x1b" "cB");
+    assert_snapshot(t, "B\n", "reset_active_style");
+    ts_render_destroy(t);
+}
+
+TEST(test_c1_csi_unsupported) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x9b" "2JB");
+    assert_snapshot(t, "A2JB\n", "c1_csi_unsupported");
+    ts_render_destroy(t);
+}
+
+TEST(test_standard_modes_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[4hA\x1b[4lB");
+    assert_snapshot(t, "AB\n", "standard_modes_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_device_status_report_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x1b[6nB");
+    assert_snapshot(t, "AB\n", "device_status_report_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_unknown_csi_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x1b[12qB");
+    assert_snapshot(t, "AB\n", "unknown_csi_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_unknown_esc_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x1bZB");
+    assert_snapshot(t, "AB\n", "unknown_esc_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_unterminated_osc_consumes_remainder) {
+    ts_render_t *t = ts_render_create(2, 20);
+    feed_str(t, "A\x1b]0;discarded");
+    assert_snapshot(t, "A\n", "unterminated_osc_consumes_remainder");
+    ts_render_destroy(t);
+}
+
+TEST(test_unterminated_dcs_consumes_remainder) {
+    ts_render_t *t = ts_render_create(2, 20);
+    feed_str(t, "A\x1bPdiscarded");
+    assert_snapshot(t, "A\n", "unterminated_dcs_consumes_remainder");
+    ts_render_destroy(t);
+}
+
+TEST(test_east_asian_ambiguous_width_one) {
+    ts_render_t *t = ts_render_create(2, 2);
+    feed_str(t, "\xc2\xa1X"); /* U+00A1 has East Asian Width A. */
+    assert_snapshot(t, "\xc2\xa1X\n", "east_asian_ambiguous_width_one");
+    ts_render_destroy(t);
+}
+
+TEST(test_zero_width_without_base_discarded) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\xcc\x81" "A");
+    assert_snapshot(t, "A\n", "zero_width_without_base_discarded");
+    ts_render_destroy(t);
+}
+
+TEST(test_zero_width_cell_capacity) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\xcc\x81\xcc\x81\xcc\x81\xcc\x81" "B");
+    assert_snapshot(t, "A\xcc\x81\xcc\x81\xcc\x81" "B\n",
+                    "zero_width_cell_capacity");
+    ts_render_destroy(t);
+}
+
+TEST(test_emoji_zwj_not_composed) {
+    ts_render_t *t = ts_render_create(2, 3);
+    /* WOMAN + ZWJ + LAPTOP occupies two separate wide glyph cells. */
+    feed_str(t, "\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x92\xbb");
+    assert_snapshot(t,
+        "\xf0\x9f\x91\xa9\xe2\x80\x8d\n\xf0\x9f\x92\xbb\n",
+        "emoji_zwj_not_composed");
+    ts_render_destroy(t);
+}
+
+TEST(test_arabic_ordering_without_shaping) {
+    ts_render_t *t = ts_render_create(2, 10);
+    /* Logical سلام becomes visual-order مالس without presentation forms. */
+    feed_str(t, "\xd8\xb3\xd9\x84\xd8\xa7\xd9\x85");
+    assert_snapshot(t, "\xd9\x85\xd8\xa7\xd9\x84\xd8\xb3\n",
+                    "arabic_ordering_without_shaping");
+    ts_render_destroy(t);
+}
+
+TEST(test_preserve_sgr_attributes_and_resets) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[1;2;3;4;5;7;9mX\x1b[22;23;24;25;27;29mY");
+    assert_snapshot(t, "\x1b[1;2;3;4;5;7;9mX\x1b[0mY\n",
+                    "preserve_sgr_attributes_and_resets");
+    ts_render_destroy(t);
+}
+
+TEST(test_preserve_sgr_standard_colours) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[31;44mX");
+    assert_snapshot(t, "\x1b[38;5;1;48;5;4mX\x1b[0m\n",
+                    "preserve_sgr_standard_colours");
+    ts_render_destroy(t);
+}
+
+TEST(test_preserve_sgr_bright_colours) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[91;104mX");
+    assert_snapshot(t, "\x1b[38;5;9;48;5;12mX\x1b[0m\n",
+                    "preserve_sgr_bright_colours");
+    ts_render_destroy(t);
+}
+
+TEST(test_preserve_sgr_default_colours) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[31;44mX\x1b[39mY\x1b[49mZ");
+    assert_snapshot(t,
+        "\x1b[38;5;1;48;5;4mX\x1b[0m\x1b[48;5;4mY\x1b[0mZ\n",
+        "preserve_sgr_default_colours");
+    ts_render_destroy(t);
+}
+
+TEST(test_preserve_sgr_truecolour_background) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[48;2;0;128;255mX");
+    assert_snapshot(t, "\x1b[48;5;33mX\x1b[0m\n",
+                    "preserve_sgr_truecolour_background");
+    ts_render_destroy(t);
+}
+
+TEST(test_accepts_dimension_boundaries) {
+    ts_render_t *minimum = ts_render_create(1, 1);
+    ts_render_t *maximum_width = ts_render_create(1, 10000);
+    ts_render_t *maximum_height = ts_render_create(10000, 1);
+    ASSERT_MSG(minimum != NULL, "dimensions: 1x1 accepted");
+    ASSERT_MSG(maximum_width != NULL, "dimensions: width 10000 accepted");
+    ASSERT_MSG(maximum_height != NULL, "dimensions: height 10000 accepted");
+    ts_render_destroy(minimum);
+    ts_render_destroy(maximum_width);
+    ts_render_destroy(maximum_height);
+}
+
+TEST(test_cursor_restore_does_not_restore_style) {
+    ts_render_t *t = ts_render_create(2, 10);
+    ts_render_set_preserve_sgr(t, 1);
+    feed_str(t, "\x1b[31m\x1b" "7\x1b[32m\x1b" "8X");
+    assert_snapshot(t, "\x1b[38;5;2mX\x1b[0m\n",
+                    "cursor_restore_does_not_restore_style");
+    ts_render_destroy(t);
+}
+
+TEST(test_autowrap_mode_ignored) {
+    ts_render_t *t = ts_render_create(2, 5);
+    feed_str(t, "\x1b[?7lABCDEFX");
+    assert_snapshot(t, "ABCDE\nFX\n", "autowrap_mode_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_origin_mode_ignored) {
+    ts_render_t *t = ts_render_create(4, 10);
+    feed_str(t, "\x1b[2;3r\x1b[?6h\x1b[1;1HX");
+    assert_snapshot(t, "X\n", "origin_mode_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_insert_mode_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "ABC\x1b[1G\x1b[4hX");
+    assert_snapshot(t, "XBC\n", "insert_mode_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_osc_hyperlink_and_clipboard_consumed) {
+    ts_render_t *t = ts_render_create(2, 20);
+    feed_str(t,
+        "\x1b]8;;https://example.invalid\x1b\\Link\x1b]8;;\x1b\\"
+        "\x1b]52;c;discarded\x07X");
+    assert_snapshot(t, "LinkX\n", "osc_hyperlink_and_clipboard_consumed");
+    ts_render_destroy(t);
+}
+
+TEST(test_invalid_utf8_bytes_discarded) {
+    ts_render_t *t = ts_render_create(2, 10);
+    /* Overlong leader, stray continuation, invalid leader, interrupted input. */
+    feed_str(t, "A\xc0\x80\xff\xc3" "B");
+    assert_snapshot(t, "AB\n", "invalid_utf8_bytes_discarded");
+    ts_render_destroy(t);
+}
+
+TEST(test_flag_sequence_not_composed) {
+    ts_render_t *t = ts_render_create(2, 10);
+    /* REGIONAL INDICATOR U + S remain independent cells; replace only S. */
+    feed_str(t, "\xf0\x9f\x87\xba\xf0\x9f\x87\xb8\x1b[1DX");
+    assert_snapshot(t, "\xf0\x9f\x87\xbaX\n", "flag_sequence_not_composed");
+    ts_render_destroy(t);
+}
+
+TEST(test_character_set_designation_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x1b(BB");
+    assert_snapshot(t, "AB\n", "character_set_designation_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_mouse_protocol_mode_ignored) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "\x1b[?1000hA\x1b[?1000lB");
+    assert_snapshot(t, "AB\n", "mouse_protocol_mode_ignored");
+    ts_render_destroy(t);
+}
+
+TEST(test_sixel_payload_consumed) {
+    ts_render_t *t = ts_render_create(2, 10);
+    feed_str(t, "A\x1bPq~sixel-data\x1b\\B");
+    assert_snapshot(t, "AB\n", "sixel_payload_consumed");
+    ts_render_destroy(t);
+}
+
+/* ══════════════════════════════════════════════════════════════════ */
 /*  TEST RUNNER                                                      */
 /* ══════════════════════════════════════════════════════════════════ */
 
@@ -1295,6 +1618,49 @@ int main(void) {
     RUN_TEST(test_preserve_sgr_bg_color);
     RUN_TEST(test_preserve_sgr_style_changes);
     RUN_TEST(test_preserve_sgr_reset_at_eol);
+
+    printf("\nDocumented contract boundaries:\n");
+    RUN_TEST(test_trailing_spaces_trimmed);
+    RUN_TEST(test_trailing_blank_rows_omitted);
+    RUN_TEST(test_hvp_cursor_position);
+    RUN_TEST(test_erase_scrollback_mode);
+    RUN_TEST(test_index_control);
+    RUN_TEST(test_next_line_control);
+    RUN_TEST(test_horizontal_tab_set);
+    RUN_TEST(test_tab_clear_current);
+    RUN_TEST(test_tab_clear_all);
+    RUN_TEST(test_reset_scroll_region);
+    RUN_TEST(test_reset_tab_stops);
+    RUN_TEST(test_reset_parser_state);
+    RUN_TEST(test_reset_active_style);
+    RUN_TEST(test_c1_csi_unsupported);
+    RUN_TEST(test_standard_modes_ignored);
+    RUN_TEST(test_device_status_report_ignored);
+    RUN_TEST(test_unknown_csi_ignored);
+    RUN_TEST(test_unknown_esc_ignored);
+    RUN_TEST(test_unterminated_osc_consumes_remainder);
+    RUN_TEST(test_unterminated_dcs_consumes_remainder);
+    RUN_TEST(test_east_asian_ambiguous_width_one);
+    RUN_TEST(test_zero_width_without_base_discarded);
+    RUN_TEST(test_zero_width_cell_capacity);
+    RUN_TEST(test_emoji_zwj_not_composed);
+    RUN_TEST(test_arabic_ordering_without_shaping);
+    RUN_TEST(test_preserve_sgr_attributes_and_resets);
+    RUN_TEST(test_preserve_sgr_standard_colours);
+    RUN_TEST(test_preserve_sgr_bright_colours);
+    RUN_TEST(test_preserve_sgr_default_colours);
+    RUN_TEST(test_preserve_sgr_truecolour_background);
+    RUN_TEST(test_accepts_dimension_boundaries);
+    RUN_TEST(test_cursor_restore_does_not_restore_style);
+    RUN_TEST(test_autowrap_mode_ignored);
+    RUN_TEST(test_origin_mode_ignored);
+    RUN_TEST(test_insert_mode_ignored);
+    RUN_TEST(test_osc_hyperlink_and_clipboard_consumed);
+    RUN_TEST(test_invalid_utf8_bytes_discarded);
+    RUN_TEST(test_flag_sequence_not_composed);
+    RUN_TEST(test_character_set_designation_ignored);
+    RUN_TEST(test_mouse_protocol_mode_ignored);
+    RUN_TEST(test_sixel_payload_consumed);
 
     printf("\nAPI:\n");
     RUN_TEST(test_reset_clears_all);

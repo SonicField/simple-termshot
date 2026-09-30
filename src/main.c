@@ -253,7 +253,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    fputs(output, stdout);
+    if (fputs(output, stdout) == EOF || fflush(stdout) == EOF) {
+        fprintf(stderr, "simple-termshot: failed to write output: %s\n",
+                strerror(errno));
+        free(output);
+        ts_render_destroy(t);
+        return 1;
+    }
 
     free(output);
     ts_render_destroy(t);

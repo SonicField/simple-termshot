@@ -51,6 +51,26 @@ TESTS_RUN=$((TESTS_RUN + 1))
 actual=$($PROGRAM --version)
 assert_eq 'simple-termshot 0.1.0' "$actual" '--version reports program version'
 
+default_width_input=$(awk 'BEGIN { for (i = 0; i < 81; i++) printf "X" }')
+default_width_expected=$(awk 'BEGIN {
+    for (i = 0; i < 80; i++) printf "X"
+    printf "\nX\n"
+}')
+actual=$(printf '%s' "$default_width_input" | $PROGRAM)
+assert_eq "$default_width_expected" "$actual" 'default width is 80 columns'
+
+default_height_input=$(awk 'BEGIN {
+    for (i = 1; i <= 25; i++) {
+        if (i > 1) printf "\n"
+        printf "%02d", i
+    }
+}')
+default_height_expected=$(awk 'BEGIN {
+    for (i = 2; i <= 25; i++) printf "%02d\n", i
+}')
+actual=$(printf '%s' "$default_height_input" | $PROGRAM)
+assert_eq "$default_height_expected" "$actual" 'default height is 24 rows'
+
 actual=$(printf 'Progress 10%%\rProgress 100%%\n' | \
     $PROGRAM --width=24 --height=4)
 assert_eq 'Progress 100%' "$actual" 'carriage-return progress update'
@@ -111,5 +131,11 @@ $PROGRAM "$tmp_dir/missing.log" \
 status=$?
 set -e
 assert_eq '1' "$status" 'reports an unreadable input file as a runtime error'
+
+set +e
+$PROGRAM </dev/null 2>"$tmp_dir/write.err" >&-
+status=$?
+set -e
+assert_eq '1' "$status" 'reports an output failure as a runtime error'
 
 printf 'CLI tests: %d/%d passed\n' "$TESTS_RUN" "$TESTS_RUN"

@@ -13,6 +13,9 @@
 - Discard Unicode `Bidi_Control` input characters so unsupported directional
   controls cannot leak into visual-order snapshots.
 - Correct failed-test accounting in the core test runner.
+- Add direct tests for each observable terminal-contract claim and document the
+  claim-to-test mapping.
+- Detect output write failures and return the documented runtime-error status.
 
 ## 0.1.0 — 2026-09-29
 

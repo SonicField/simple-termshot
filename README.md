@@ -94,7 +94,7 @@ boundaries are documented in [`docs/TERMINAL.md`](docs/TERMINAL.md).
 ## Tests
 
 ```sh
-make test       # 106 core cases plus black-box CLI checks
+make test       # 147 core cases plus black-box CLI checks
 make sanitize   # tests under AddressSanitizer and UBSan
 make analyze    # GCC path-sensitive static analysis
 make test-bidi-conformance # official Unicode 13.0 UAX #9 corpora
@@ -103,6 +103,8 @@ make test-bidi-conformance # official Unicode 13.0 UAX #9 corpora
 Warnings fail the build. The suite covers realistic terminal sessions,
 malformed sequences, split input chunks, Unicode, wide characters, bidi,
 scrolling, cursor operations, and SGR handling.
+Every testable claim in the terminal contract is mapped to named evidence in
+[`docs/TESTING.md`](docs/TESTING.md).
 
 The bundled bidirectional resolver implements UAX #9 with Unicode 13.0.0
 properties. The terminal snapshot applies that resolver to ordinary screen-cell

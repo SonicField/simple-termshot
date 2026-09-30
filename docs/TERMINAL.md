@@ -109,5 +109,5 @@ as safe shell, HTML, or programming language input.
 | Status | Meaning |
 |---|---|
 | 0 | The input was rendered successfully. |
-| 1 | An allocation, input, output, open, or close operation failed. |
+| 1 | A runtime failure occurred, including allocation or input/output I/O. |
 | 4 | Command-line arguments were invalid. |
