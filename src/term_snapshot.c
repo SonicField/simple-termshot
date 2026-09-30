@@ -932,7 +932,13 @@ char *ts_render_snapshot(const ts_render_t *t) {
             if (CELL_IS_CONTINUATION(c)) continue;
             col_map[char_count] = col;
             if (c->len > 0) {
-                codepoints[char_count] = utf8_to_codepoint(c->ch, c->len > 4 ? 4 : c->len);
+                unsigned char lead = (unsigned char)c->ch[0];
+                int codepoint_len = lead < 0x80 ? 1 :
+                    (lead & 0xE0) == 0xC0 ? 2 :
+                    (lead & 0xF0) == 0xE0 ? 3 :
+                    (lead & 0xF8) == 0xF0 ? 4 : 1;
+                if (codepoint_len > c->len) codepoint_len = c->len;
+                codepoints[char_count] = utf8_to_codepoint(c->ch, codepoint_len);
             } else {
                 codepoints[char_count] = 0x0020; /* empty cell = space */
             }
@@ -942,14 +948,20 @@ char *ts_render_snapshot(const ts_render_t *t) {
         /* Apply bidi reordering with levels for mirroring */
         int visual_map[t->cols];
         int bidi_levels[t->cols];
+        int visual_count = 0;
         if (char_count > 0) {
-            bidi_reorder_with_levels(codepoints, char_count,
-                                     visual_map, bidi_levels, 0);
+            int paragraph_level;
+            if (bidi_resolve(codepoints, char_count, visual_map, bidi_levels,
+                             0, &paragraph_level, &visual_count) != BIDI_SUCCESS) {
+                free(buf);
+                return NULL;
+            }
+            (void)paragraph_level;
         }
 
         /* Write cells in visual order, with bracket mirroring */
         term_style_t cur_style = { TERM_COLOR_NONE, TERM_COLOR_NONE, 0 };
-        for (int vi = 0; vi < char_count; vi++) {
+        for (int vi = 0; vi < visual_count; vi++) {
             int li = visual_map[vi]; /* logical index */
             int col = col_map[li];
             const ts_render_cell_t *c = cell_at_const(t, row, col);

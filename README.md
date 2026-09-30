@@ -88,11 +88,16 @@ with them are handled.
 make test       # 104 core cases plus black-box CLI checks
 make sanitize   # tests under AddressSanitizer and UBSan
 make analyze    # GCC path-sensitive static analysis
+make test-bidi-conformance # official Unicode 13.0 UAX #9 corpora
 ```
 
 Warnings fail the build. The suite covers realistic terminal sessions,
 malformed sequences, split input chunks, Unicode, wide characters, bidi,
 scrolling, cursor operations, and SGR handling.
+
+Bidirectional processing implements UAX #9 with bundled Unicode 13.0.0
+properties. Its algorithm, data provenance, and conformance evidence are
+documented in [`docs/BIDI.md`](docs/BIDI.md).
 
 ## Code layout
 
@@ -112,4 +117,5 @@ The extraction history and its verification evidence are recorded in
 The path-filtered Git history retains the original authorship and commit
 messages.
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE). Generated Unicode property data is
+covered by the [Unicode Data Files and Software License](LICENSE-UNICODE).

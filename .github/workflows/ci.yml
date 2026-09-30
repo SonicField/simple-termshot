@@ -61,6 +61,9 @@ jobs:
         run: test "$(uname -m)" = "$EXPECTED_ARCH"
       - name: Build and test
         run: make test
+      - name: Verify UAX #9 conformance
+        if: matrix.platform == 'Ubuntu x86-64' && matrix.compiler == 'GCC'
+        run: make test-bidi-conformance
       - name: Verify staged install
         run: |
           stage=$(mktemp -d)
@@ -78,6 +81,11 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Run sanitizers
         run: make sanitize
+      - name: Run UAX #9 conformance under sanitizers
+        run: |
+          make clean
+          make CFLAGS='-O1 -g3 -fsanitize=address,undefined -fno-omit-frame-pointer' \
+            test-bidi-conformance
 
   static-analysis:
     name: Static analysis and shell checks

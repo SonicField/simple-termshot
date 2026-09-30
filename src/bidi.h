@@ -2,8 +2,8 @@
  * bidi.h — Unicode Bidirectional Algorithm (UAX #9).
  *
  * Reorders a line of Unicode codepoints from logical to visual order.
- * Full UAX #9 implementation: character type resolution, embedding levels,
- * weak type resolution, neutral type resolution, implicit levels, reordering.
+ * Implements UAX #9 using the bundled, versioned Unicode data declared by
+ * BIDI_UNICODE_VERSION in bidi_data.h.
  *
  * No external dependencies. Bundled character type table.
  */
@@ -48,8 +48,20 @@ typedef enum {
     BIDI_PDI = 22,  /* Pop Directional Isolate */
 } bidi_type_t;
 
+typedef enum {
+    BIDI_SUCCESS = 0,
+    BIDI_ERROR_INVALID_ARGUMENT = -1,
+    BIDI_ERROR_NO_MEMORY = -2,
+} bidi_status_t;
+
+typedef enum {
+    BIDI_BRACKET_NONE = 0,
+    BIDI_BRACKET_OPEN = 1,
+    BIDI_BRACKET_CLOSE = 2,
+} bidi_bracket_type_t;
+
 /*
- * Look up the bidi character type for a Unicode codepoint.
+ * Look up the bidi character type for a Unicode scalar value.
  */
 bidi_type_t bidi_type(uint32_t cp);
 
@@ -68,14 +80,35 @@ int bidi_reorder(const uint32_t *codepoints, int count,
                  int *visual_map, int base_dir);
 
 /*
+ * Resolve one Unicode bidi paragraph.
+ *
+ * out_levels receives the resolved level for every input codepoint.  Entries
+ * removed by rule X9 receive -1.  visual_map receives logical indices in
+ * display order; X9-removed entries are omitted and out_visual_count reports
+ * the resulting length.  base_dir is 0 for auto, 1 for LTR, or 2 for RTL.
+ *
+ * Surrogates and values above U+10FFFF are rejected. Returns BIDI_SUCCESS or
+ * an error. No partial result is valid on error.
+ */
+bidi_status_t bidi_resolve(const uint32_t *codepoints, int count,
+                           int *visual_map, int *out_levels,
+                           int base_dir, int *out_paragraph_level,
+                           int *out_visual_count);
+
+/*
  * Return the bidi mirrored glyph for a codepoint, or the codepoint
  * itself if no mirror exists. Used for brackets in RTL context (UAX #9 L4).
  */
 uint32_t bidi_mirror(uint32_t cp);
 
+/* Return the paired-bracket type and, when non-NULL, its paired codepoint. */
+bidi_bracket_type_t bidi_paired_bracket(uint32_t cp,
+                                        uint32_t *paired_codepoint);
+
 /*
- * Get the resolved embedding level for a position after reorder.
- * Must be called after bidi_reorder. Returns levels via output array.
+ * Compatibility wrapper returning the paragraph level, or -1 on failure.
+ * New callers should use bidi_resolve so allocation failures and the visual
+ * length after X9 removals are explicit.
  */
 int bidi_reorder_with_levels(const uint32_t *codepoints, int count,
                              int *visual_map, int *out_levels,

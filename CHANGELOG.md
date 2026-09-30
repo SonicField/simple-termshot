@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Replace approximate bidi handling with a complete UAX #9 pipeline, including
+  isolating run sequences, paired-bracket resolution, real embedding levels,
+  explicit failure reporting, and generated Unicode 13.0.0 property tables.
+- Add both official Unicode 13.0 bidi conformance corpora: all 861,940 test
+  executions verify exact paragraph levels, resolved levels, and visual order.
+
 ## 0.1.0 — 2026-09-29
 
 - Extract the terminal renderer from `nbs-framework` with its filtered history.

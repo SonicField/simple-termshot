@@ -15,27 +15,52 @@ TARGET = simple-termshot
 BUILD_DIR = build
 TEST_TARGET = $(BUILD_DIR)/test_term_snapshot
 ANALYZE_TARGET = $(BUILD_DIR)/simple-termshot-analyze
+BIDI_CONFORMANCE_TARGET = $(BUILD_DIR)/test_bidi_conformance
+BIDI_DATA_TEST_TARGET = $(BUILD_DIR)/test_bidi_data
+BIDI_GENERATED_CHECK = $(BUILD_DIR)/bidi_data.generated.h
 
 CORE_SOURCES = src/term_snapshot.c src/unicode_width.c src/bidi.c \
 	src/term_style.c
 SOURCES = src/main.c $(CORE_SOURCES)
+BIDI_HEADERS = src/bidi.h src/bidi_data.h
 
-.PHONY: all clean install test debug sanitize analyze
+.PHONY: all clean install test test-bidi-conformance verify-bidi-data debug sanitize analyze
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
+$(TARGET): $(SOURCES) $(BIDI_HEADERS)
 	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $(SOURCES)
 
 $(BUILD_DIR):
 	mkdir -p $@
 
-$(TEST_TARGET): tests/test_term_snapshot.c $(CORE_SOURCES) | $(BUILD_DIR)
-	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ $^
+$(TEST_TARGET): tests/test_term_snapshot.c $(CORE_SOURCES) $(BIDI_HEADERS) | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ tests/test_term_snapshot.c $(CORE_SOURCES)
 
 test: $(TEST_TARGET) $(TARGET)
 	./$(TEST_TARGET)
 	./tests/test_cli.sh
+
+$(BIDI_CONFORMANCE_TARGET): tests/test_bidi_conformance.c src/bidi.c $(BIDI_HEADERS) | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ tests/test_bidi_conformance.c src/bidi.c
+
+$(BIDI_DATA_TEST_TARGET): tests/test_bidi_data.c src/bidi.c $(BIDI_HEADERS) | $(BUILD_DIR)
+	$(CC) $(CPPFLAGS) $(ALL_CFLAGS) -o $@ tests/test_bidi_data.c src/bidi.c
+
+$(BIDI_GENERATED_CHECK): tools/generate_bidi_data.pl \
+		tests/unicode/13.0.0/DerivedBidiClass.txt \
+		tests/unicode/13.0.0/BidiBrackets.txt \
+		tests/unicode/13.0.0/BidiMirroring.txt | $(BUILD_DIR)
+	perl tools/generate_bidi_data.pl > $@
+
+verify-bidi-data: $(BIDI_GENERATED_CHECK) $(BIDI_DATA_TEST_TARGET)
+	cd tests/unicode/13.0.0 && sha256sum -c SHA256SUMS
+	cmp src/bidi_data.h $(BIDI_GENERATED_CHECK)
+	./$(BIDI_DATA_TEST_TARGET)
+
+test-bidi-conformance: verify-bidi-data $(BIDI_CONFORMANCE_TARGET)
+	./$(BIDI_CONFORMANCE_TARGET) tests/unicode/13.0.0/BidiTest.txt \
+		tests/unicode/13.0.0/BidiCharacterTest.txt
 
 install: $(TARGET)
 	install -d "$(DESTDIR)$(BINDIR)"
@@ -51,9 +76,11 @@ sanitize:
 
 analyze: $(ANALYZE_TARGET)
 
-$(ANALYZE_TARGET): $(SOURCES) | $(BUILD_DIR)
+$(ANALYZE_TARGET): $(SOURCES) $(BIDI_HEADERS) | $(BUILD_DIR)
 	$(ANALYZER_CC) $(CPPFLAGS) $(BASE_CFLAGS) $(ANALYZER_CFLAGS) -o $@ $(SOURCES)
 
 clean:
-	rm -f $(TARGET) $(TEST_TARGET) $(ANALYZE_TARGET)
+	rm -f $(TARGET) $(TEST_TARGET) $(ANALYZE_TARGET) \
+		$(BIDI_CONFORMANCE_TARGET) $(BIDI_DATA_TEST_TARGET) \
+		$(BIDI_GENERATED_CHECK)
 	rmdir $(BUILD_DIR) 2>/dev/null || true

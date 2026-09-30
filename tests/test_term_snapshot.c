@@ -923,7 +923,8 @@ TEST(test_combining_character) {
     /* Combining mark appends to previous cell, no cursor advance */
     feed_str(t, "\xd7\xa9\xd6\xb4 A");
     /* שִ at col 0 (base + combining in same cell), space at col 1, A at col 2 */
-    assert_snapshot(t, "\xd7\xa9\xd6\xb4 A\n", "combining_character");
+    /* UAX #9 places the trailing Latin run first in this RTL paragraph. */
+    assert_snapshot(t, "A \xd7\xa9\xd6\xb4\n", "combining_character");
     ts_render_destroy(t);
 }
 
